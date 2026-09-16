@@ -15,6 +15,12 @@ import {
   Zap,
   Flame,
   Shirt,
+  MessageSquare,
+  Heart,
+  Meh,
+  Frown,
+  SmilePlus,
+  Pin,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-client';
 import { OCASIOES, FORMALIDADE_LABELS } from '@/lib/constants';
@@ -122,6 +128,77 @@ const LOOK_CONFIG: Record<
     desc: 'Fora da zona de conforto',
   },
 };
+
+
+function FeedbackModal({
+  lookTipo,
+  onSubmit,
+  onCancel,
+}: {
+  lookTipo: LookTipo;
+  onSubmit: (comoMeSenti: string, feedback: string) => void;
+  onCancel: () => void;
+}) {
+  const [sentiment, setSentiment] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState('');
+
+  const sentiments = [
+    { key: 'amei', label: 'Amei!', icon: Heart, color: 'text-success' },
+    { key: 'gostei', label: 'Gostei', icon: SmilePlus, color: 'text-primary' },
+    { key: 'ok', label: 'Ok', icon: Meh, color: 'text-muted' },
+    { key: 'nao_gostei', label: 'Não curti', icon: Frown, color: 'text-warning' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end justify-center" onClick={onCancel}>
+      <div className="bg-surface w-full max-w-lg rounded-t-3xl border border-border border-b-0 p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-center pt-1 pb-3">
+          <div className="w-10 h-1 rounded-full bg-border" />
+        </div>
+        <h3 className="text-base font-semibold text-foreground mb-1">Como você se sentiu?</h3>
+        <p className="text-xs text-muted mb-4">Seu feedback ajuda a melhorar as sugestões</p>
+
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {sentiments.map(({ key, label, icon: Icon, color }) => (
+            <button
+              key={key}
+              onClick={() => setSentiment(key)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${
+                sentiment === key
+                  ? 'bg-primary/10 border border-primary'
+                  : 'bg-surface-alt border border-transparent'
+              }`}
+            >
+              <Icon size={20} className={sentiment === key ? color : 'text-muted'} />
+              <span className="text-[10px] font-medium text-foreground">{label}</span>
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          placeholder="Algum comentário? (opcional)"
+          rows={3}
+          className="w-full px-3 py-2 rounded-xl text-sm bg-surface-alt border border-border text-foreground placeholder:text-muted resize-none mb-4"
+        />
+
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 py-3 rounded-xl text-sm font-medium bg-surface-alt text-muted">
+            Pular
+          </button>
+          <button
+            onClick={() => onSubmit(sentiment || 'ok', feedback)}
+            className="flex-1 py-3 rounded-xl text-sm font-medium bg-primary text-white"
+          >
+            Salvar
+          </button>
+        </div>
+        <div className="h-6" />
+      </div>
+    </div>
+  );
+}
 
 function LookCard({
   look,
@@ -265,6 +342,8 @@ export default function LooksPage() {
   const [looks, setLooks] = useState<GeneratedLook[]>([]);
   const [decisions, setDecisions] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [fixedPecas, setFixedPecas] = useState<Set<string>>(new Set());
+  const [feedbackFor, setFeedbackFor] = useState<LookTipo | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   // Load initial data
@@ -352,6 +431,7 @@ export default function LooksPage() {
           perfilEstilo,
           pecas: pecasMinimal,
           formalidadeAlvo: 3,
+          pecasFixadas: Array.from(fixedPecas),
         }),
       });
 
@@ -406,32 +486,49 @@ export default function LooksPage() {
         console.error('Error saving look decision:', insertError);
       }
 
-      // If "usei", register usage and update piece stats
+      // If "usei", show feedback modal then register usage
       if (decisao === 'usei') {
-        // Insert usage record
-        await supabase.from('registros_uso').insert({
-          user_id: userId,
-          pecas: look.pecas,
-          ocasiao: look.ocasiao,
-          data: new Date().toISOString().split('T')[0],
-        });
-
-        // Update vezes_usada + ultima_utilizacao for each piece
-        for (const pecaId of look.pecas) {
-          const peca = pecasMap.get(pecaId);
-          if (peca) {
-            await supabase
-              .from('pecas')
-              .update({
-                vezes_usada: peca.vezes_usada + 1,
-                ultima_utilizacao: new Date().toISOString().split('T')[0],
-              })
-              .eq('id', pecaId);
-          }
-        }
+        setFeedbackFor(tipo);
       }
     },
     [userId, looks, pecasMap]
+  );
+
+  const handleFeedbackSubmit = useCallback(
+    async (comoMeSenti: string, feedbackText: string) => {
+      if (!userId || !feedbackFor) return;
+      const look = looks.find((l) => l.tipo === feedbackFor);
+      if (!look) { setFeedbackFor(null); return; }
+
+      const supabase = createClient();
+
+      // Insert usage record with feedback
+      await supabase.from('registros_uso').insert({
+        user_id: userId,
+        pecas: look.pecas,
+        ocasiao: look.ocasiao,
+        data: new Date().toISOString().split('T')[0],
+        como_me_senti: comoMeSenti,
+        feedback: feedbackText || null,
+      });
+
+      // Update vezes_usada + ultima_utilizacao for each piece
+      for (const pecaId of look.pecas) {
+        const peca = pecasMap.get(pecaId);
+        if (peca) {
+          await supabase
+            .from('pecas')
+            .update({
+              vezes_usada: peca.vezes_usada + 1,
+              ultima_utilizacao: new Date().toISOString().split('T')[0],
+            })
+            .eq('id', pecaId);
+        }
+      }
+
+      setFeedbackFor(null);
+    },
+    [userId, feedbackFor, looks, pecasMap]
   );
 
   const handleNewLooks = () => {
@@ -503,6 +600,14 @@ export default function LooksPage() {
             />
           ))}
         </div>
+
+        {feedbackFor && (
+          <FeedbackModal
+            lookTipo={feedbackFor}
+            onSubmit={handleFeedbackSubmit}
+            onCancel={() => setFeedbackFor(null)}
+          />
+        )}
       </div>
     );
   }
@@ -544,6 +649,55 @@ export default function LooksPage() {
       {error && (
         <div className="bg-danger/10 text-danger text-sm rounded-xl p-3 mb-4">
           {error}
+        </div>
+      )}
+
+      {/* Fixed pieces selector */}
+      {pecas.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Pin size={14} className="text-primary" />
+            <h2 className="text-sm font-medium text-foreground">
+              Peças que quero usar
+            </h2>
+            <span className="text-xs text-muted">({fixedPecas.size} selecionadas)</span>
+          </div>
+          <p className="text-xs text-muted mb-3">
+            Opcional: fixe peças e a IA montará os looks incluindo elas.
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {pecas.slice(0, 20).map((p) => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  setFixedPecas(prev => {
+                    const next = new Set(prev);
+                    if (next.has(p.id)) next.delete(p.id);
+                    else next.add(p.id);
+                    return next;
+                  });
+                }}
+                className={`flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all relative ${
+                  fixedPecas.has(p.id)
+                    ? 'border-primary shadow-sm'
+                    : 'border-transparent opacity-60'
+                }`}
+              >
+                {p.imagem_url ? (
+                  <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-surface-alt flex items-center justify-center">
+                    <Shirt size={16} className="text-muted" />
+                  </div>
+                )}
+                {fixedPecas.has(p.id) && (
+                  <div className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                    <Pin size={8} className="text-white" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

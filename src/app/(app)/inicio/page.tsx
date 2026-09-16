@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sun, Cloud, CloudRain, CloudSnow, Wind, Loader2 } from 'lucide-react';
 import { OCASIOES } from '@/lib/constants';
+import { createClient } from '@/lib/supabase-client';
 
 type WeatherData = {
   temp: number;
@@ -31,6 +32,56 @@ export default function InicioPage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [selectedOcasiao, setSelectedOcasiao] = useState<string | null>(null);
+  const [stats, setStats] = useState({ pecas: 0, looks: 0, favoritos: 0 });
+  const [sugestao, setSugestao] = useState<string>('');
+
+  // Load real stats from Supabase
+  useEffect(() => {
+    async function loadStats() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const [pecasRes, looksRes, favRes] = await Promise.all([
+        supabase.from('pecas').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('looks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('looks').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('decisao', 'usei'),
+      ]);
+
+      setStats({
+        pecas: pecasRes.count ?? 0,
+        looks: looksRes.count ?? 0,
+        favoritos: favRes.count ?? 0,
+      });
+
+      // Smart suggestion based on real data
+      const totalPecas = pecasRes.count ?? 0;
+      const totalLooks = looksRes.count ?? 0;
+
+      if (totalPecas === 0) {
+        setSugestao('Comece adicionando suas peças no armário! Fotografe suas roupas e a IA vai catalogar automaticamente.');
+      } else if (totalPecas < 5) {
+        setSugestao(`Você tem ${totalPecas} peças. Adicione mais para ter looks mais variados — a mágica começa com 10+ peças.`);
+      } else if (totalLooks === 0) {
+        setSugestao('Seu armário está pronto! Que tal gerar seus primeiros looks? Escolha uma ocasião abaixo.');
+      } else {
+        // Check for forgotten pieces
+        const { data: forgotten } = await supabase
+          .from('pecas')
+          .select('nome')
+          .eq('user_id', user.id)
+          .eq('disponivel', true)
+          .lt('vezes_usada', 2)
+          .order('vezes_usada')
+          .limit(1);
+
+        if (forgotten && forgotten.length > 0) {
+          setSugestao(`Que tal usar "${forgotten[0].nome}"? Essa peça está esquecida no armário — vamos dar vida a ela!`);
+        }
+      }
+    }
+    loadStats();
+  }, []);
 
   useEffect(() => {
     fetch('/api/weather?city=Curitiba,PR')
@@ -154,9 +205,9 @@ export default function InicioPage() {
           </span>
         </div>
         <p style={{ fontSize: '0.875rem', color: '#2D2A26', lineHeight: 1.5 }}>
-          {weather && weather.temp < 20
+          {sugestao || (weather && weather.temp < 20
             ? 'Dia fresco — que tal um look com camadas? Separei algumas opções pra você.'
-            : 'Dia agradável — looks leves e frescos vão funcionar muito bem hoje.'}
+            : 'Dia agradável — looks leves e frescos vão funcionar muito bem hoje.')}
         </p>
       </div>
 
@@ -236,7 +287,7 @@ export default function InicioPage() {
               color: '#5E4F72',
             }}
           >
-            —
+            {stats.pecas}
           </p>
           <p style={{ fontSize: '0.6875rem', color: '#6B6560' }}>Peças</p>
         </div>
@@ -249,7 +300,7 @@ export default function InicioPage() {
               color: '#5E4F72',
             }}
           >
-            —
+            {stats.looks}
           </p>
           <p style={{ fontSize: '0.6875rem', color: '#6B6560' }}>Looks criados</p>
         </div>
@@ -262,7 +313,7 @@ export default function InicioPage() {
               color: '#5E4F72',
             }}
           >
-            —
+            {stats.favoritos}
           </p>
           <p style={{ fontSize: '0.6875rem', color: '#6B6560' }}>Favoritos</p>
         </div>

@@ -38,8 +38,9 @@ export function buildLooksPrompt(params: {
   condicaoClima: string | null;
   perfilEstilo: Record<string, unknown>;
   pecasDisponiveis: Array<Record<string, unknown>>;
+  pecasFixadas?: string[];
 }): string {
-  const { ocasiao, temperatura, condicaoClima, perfilEstilo, pecasDisponiveis } = params;
+  const { ocasiao, temperatura, condicaoClima, perfilEstilo, pecasDisponiveis, pecasFixadas } = params;
 
   return `Você é a estilista pessoal do Meu Vestidor. Monte 3 looks para a usuária.
 
@@ -48,6 +49,11 @@ export function buildLooksPrompt(params: {
 ${temperatura !== null ? `- Temperatura: ${temperatura}°C` : ''}
 ${condicaoClima ? `- Condição do tempo: ${condicaoClima}` : ''}
 
+${pecasFixadas && pecasFixadas.length > 0 ? `## PEÇAS FIXADAS (OBRIGATÓRIAS)
+A usuária quer usar estas peças. Elas DEVEM aparecer em TODOS os 3 looks:
+IDs fixados: ${JSON.stringify(pecasFixadas)}
+Monte os looks INCLUINDO essas peças obrigatoriamente.
+` : ''}
 ## PERFIL DA USUÁRIA
 ${JSON.stringify(perfilEstilo, null, 2)}
 

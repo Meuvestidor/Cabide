@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { href: '/inicio', label: 'Início', icon: Home },
   { href: '/armario', label: 'Armário', icon: Shirt },
   { href: '/looks', label: 'Criar', icon: Plus, isCenter: true },
-  { href: '/looks', label: 'Looks', icon: Sparkles },
+  { href: '/historico', label: 'Looks', icon: Sparkles },
   { href: '/estilo', label: 'Perfil', icon: User },
 ];
 
@@ -32,7 +32,7 @@ export function BottomNav() {
             return (
               <Link
                 key="criar"
-                href="/looks?mode=criar"
+                href="/looks"
                 className="flex flex-col items-center gap-0.5 -mt-4"
               >
                 <div
