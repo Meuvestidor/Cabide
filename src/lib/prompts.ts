@@ -23,7 +23,7 @@ Retorne SOMENTE um JSON válido com esta estrutura:
   "temporadas": ["primavera_verao" e/ou "outono_inverno" e/ou "todas"],
   "temperatura_min": número (temperatura mínima adequada em °C),
   "temperatura_max": número (temperatura máxima adequada em °C),
-  "ocasioes": ["trabalho", "trabalho_arrumado", "reuniao", "networking", "palestra", "evento", "casual", "gravacao", "viagem", "encontro"],
+  "ocasioes": ["trabalho", "reuniao", "networking", "palestra", "evento", "casual", "gravacao", "viagem", "encontro"],
   "estilos": ["clássico", "moderno", "minimalista", "romântico", "esportivo", etc.],
   "estado": "novo | bom | usado | desgastado",
   "comprimento": "curto | médio | longo | midi | mini | maxi | null",

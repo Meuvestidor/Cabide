@@ -8,9 +8,10 @@ import { createClient } from '@/lib/supabase-client';
 type WeatherData = {
   temp: number;
   description: string;
-  city_name: string;
+  city: string;
   humidity: number | null;
-  wind_speedy: string | null;
+  wind: string | null;
+  condition: string;
 };
 
 function WeatherIcon({ description }: { description: string }) {
@@ -28,12 +29,20 @@ function WeatherIcon({ description }: { description: string }) {
   return <Icon size={20} />;
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Bom dia';
+  if (hour < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
 export default function InicioPage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [selectedOcasiao, setSelectedOcasiao] = useState<string | null>(null);
   const [stats, setStats] = useState({ pecas: 0, looks: 0, favoritos: 0 });
   const [sugestao, setSugestao] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
 
   // Load real stats from Supabase
   useEffect(() => {
@@ -41,6 +50,16 @@ export default function InicioPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Get user's name from profiles table
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('nome')
+        .eq('id', user.id)
+        .single();
+      if (profile?.nome) {
+        setUserName(profile.nome.split(' ')[0]); // First name only
+      }
 
       const [pecasRes, looksRes, favRes] = await Promise.all([
         supabase.from('pecas').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -84,9 +103,13 @@ export default function InicioPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/weather?city=Curitiba,PR')
+    fetch('/api/weather')
       .then(res => res.json())
-      .then(json => setWeather(json.data))
+      .then(json => {
+        if (json.current) {
+          setWeather(json.current);
+        }
+      })
       .catch(() => setWeather(null))
       .finally(() => setLoadingWeather(false));
   }, []);
@@ -104,7 +127,7 @@ export default function InicioPage() {
             color: '#2D2A26',
           }}
         >
-          Bom dia ✨
+          {getGreeting()}{userName ? `, ${userName}` : ''} ✨
         </h1>
         <p
           className="mt-1"
@@ -142,7 +165,7 @@ export default function InicioPage() {
                   {weather.temp}°C
                 </p>
                 <p style={{ color: '#6B6560', fontSize: '0.8125rem' }}>
-                  {weather.city_name}
+                  {weather.city}
                 </p>
               </div>
             </div>
@@ -150,12 +173,12 @@ export default function InicioPage() {
               <p style={{ fontSize: '0.875rem', color: '#2D2A26' }}>
                 {weather.description}
               </p>
-              {weather.humidity && (
+              {weather.wind && (
                 <p
                   className="flex items-center gap-1 justify-end"
                   style={{ fontSize: '0.75rem', color: '#9A958F' }}
                 >
-                  <Wind size={12} /> {weather.wind_speedy}
+                  <Wind size={12} /> {weather.wind}
                 </p>
               )}
             </div>

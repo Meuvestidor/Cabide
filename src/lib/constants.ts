@@ -21,7 +21,6 @@ export const CATEGORIAS = {
 
 export const OCASIOES = {
   trabalho: 'Trabalho',
-  trabalho_arrumado: 'Trabalho arrumado',
   reuniao: 'Reunião',
   networking: 'Networking',
   palestra: 'Palestra',
@@ -47,6 +46,14 @@ export const PROTAGONISMO_LABELS: Record<number, string> = {
   4: 'Destaque',
   5: 'Protagonista',
 };
+
+export const COMO_ME_QUEDA = {
+  apertada: 'Apertada',
+  justa: 'Justa',
+  meu_tamanho: 'Meu tamanho',
+  folgada: 'Folgada',
+  oversize: 'Oversize',
+} as const;
 
 export const TEMPORADAS = {
   primavera_verao: 'Primavera/Verão',

@@ -22,6 +22,7 @@ import {
   PROTAGONISMO_LABELS,
   TEMPORADAS,
   OCASIOES,
+  COMO_ME_QUEDA,
 } from '@/lib/constants';
 import { createClient } from '@/lib/supabase-client';
 import type { Categoria, Ocasiao } from '@/types/database';
@@ -49,6 +50,7 @@ interface PieceData {
   ficha_ia: string | null;
   duvidas: string | null;
   revisar: boolean;
+  como_me_queda: string | null;
   notas: string | null;
   vezes_usada: number;
   ultima_utilizacao: string | null;
@@ -186,6 +188,7 @@ export function PieceDetail({
           material: editData.material,
           marca: editData.marca,
           tamanho: editData.tamanho,
+          como_me_queda: editData.como_me_queda,
           notas: editData.notas,
           disponivel: editData.estado === 'disponivel',
         })
@@ -472,6 +475,29 @@ export function PieceDetail({
               </div>
             ) : (
               <>{editData.temporadas.map((t) => TEMPORADAS[t as keyof typeof TEMPORADAS] || t).join(', ')}</>
+            )}
+          </InfoRow>
+
+          <InfoRow icon={Ruler} label="Como me queda">
+            {isEditing ? (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {Object.entries(COMO_ME_QUEDA).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setEditData(prev => ({ ...prev, como_me_queda: prev.como_me_queda === key ? null : key }))}
+                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
+                      editData.como_me_queda === key
+                        ? 'bg-primary/20 text-primary font-medium'
+                        : 'bg-surface-alt text-muted border border-border'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>{editData.como_me_queda ? COMO_ME_QUEDA[editData.como_me_queda as keyof typeof COMO_ME_QUEDA] || editData.como_me_queda : 'Não informado'}</>
             )}
           </InfoRow>
 

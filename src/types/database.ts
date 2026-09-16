@@ -22,7 +22,6 @@ export type Temporada = 'primavera_verao' | 'outono_inverno' | 'todas';
 
 export type Ocasiao =
   | 'trabalho'
-  | 'trabalho_arrumado'
   | 'reuniao'
   | 'networking'
   | 'palestra'
@@ -31,6 +30,8 @@ export type Ocasiao =
   | 'gravacao'
   | 'viagem'
   | 'encontro';
+
+export type ComoMeQueda = 'apertada' | 'justa' | 'meu_tamanho' | 'folgada' | 'oversize';
 
 export type LookTipo = 'safe' | 'cool' | 'risky';
 
@@ -104,6 +105,7 @@ export interface Peca {
   duvidas: string | null;
   revisar: boolean;
   fixado_pela_usuaria: string[]; // campos fixados manualmente
+  como_me_queda: ComoMeQueda | null;
   notas: string | null;
   vezes_usada: number;
   ultima_utilizacao: string | null;

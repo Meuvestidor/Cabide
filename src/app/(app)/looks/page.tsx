@@ -233,10 +233,29 @@ function LookCard({
         </span>
       </div>
 
-      {/* Flat lay visual */}
+      {/* Collage de fotos reais */}
       <div className="p-3">
         {lookPecas.length > 0 ? (
-          <FlatLayView pecas={lookPecas} compact />
+          <>
+            <FlatLayView pecas={lookPecas} compact />
+            {/* Piece names list */}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {lookPecas.map((p) => (
+                <span
+                  key={p.id}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] bg-surface-alt border border-border text-foreground"
+                >
+                  {p.hex && (
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-border/50 flex-shrink-0"
+                      style={{ backgroundColor: p.hex }}
+                    />
+                  )}
+                  {p.nome}
+                </span>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="py-6 text-center">
             <Shirt className="w-8 h-8 text-muted mx-auto mb-2" />
@@ -383,7 +402,15 @@ export default function LooksPage() {
       try {
         const weatherRes = await fetch('/api/weather');
         const weatherJson = await weatherRes.json();
-        if (weatherJson.data) setWeather(weatherJson.data);
+        if (weatherJson.current) {
+          setWeather({
+            temp: weatherJson.current.temp,
+            description: weatherJson.current.description,
+            city_name: weatherJson.current.city,
+            humidity: weatherJson.current.humidity,
+            wind_speedy: weatherJson.current.wind,
+          });
+        }
       } catch {
         // Weather is optional
       }
