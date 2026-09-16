@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
-/* ============================================
-   MEU VESTIDOR — Design System
-   Mobile-first • Terracotta accent • PT-BR
-   ============================================ */
+/* ================================================================
+   MEU VESTIDOR — Design System v2.0
+   Mobile-first • Lavender + Butter Yellow • PT-BR
+   ================================================================ */
 
 @theme inline {
   --color-background: var(--bg);
@@ -18,51 +18,80 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
 }
 
 :root {
-  --bg: #FAFAF8;
-  --fg: #1C1917;
-  --primary: #8B4A2B;
-  --primary-hover: #6F3B22;
+  /* Backgrounds */
+  --bg: #FDFBF7;
+  --fg: #2D2A26;
   --surface: #FFFFFF;
-  --surface-alt: #F5F0EB;
-  --border-color: #E7E0D8;
-  --muted: #78716C;
-  --success: #166534;
-  --warning: #92400E;
-  --danger: #991B1B;
-}
+  --surface-alt: #FAF6EE;
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0C0A09;
-    --fg: #F5F5F4;
-    --primary: #C4795A;
-    --primary-hover: #D4896A;
-    --surface: #1C1917;
-    --surface-alt: #292524;
-    --border-color: #44403C;
-    --muted: #A8A29E;
-    --success: #4ADE80;
-    --warning: #FCD34D;
-    --danger: #F87171;
-  }
-}
+  /* Brand */
+  --primary: #5E4F72;
+  --primary-hover: #4A3D5C;
+  --primary-active: #3D3250;
+  --primary-light: #7A6B8E;
 
-:root[data-theme="dark"] {
-  --bg: #0C0A09;
-  --fg: #F5F5F4;
-  --primary: #C4795A;
-  --primary-hover: #D4896A;
-  --surface: #1C1917;
-  --surface-alt: #292524;
-  --border-color: #44403C;
-  --muted: #A8A29E;
-  --success: #4ADE80;
-  --warning: #FCD34D;
-  --danger: #F87171;
+  /* Accent colors */
+  --lavender: #C4B8E9;
+  --lavender-muted: #D8D0F0;
+  --lavender-bright: #B5A5E0;
+  --butter: #F5E4A8;
+  --butter-warm: #EFE2A0;
+  --ivory: #FDFBF7;
+
+  /* UI */
+  --border-color: #E8E4DE;
+  --border-subtle: #F0ECE6;
+  --border-focus: #C4B8E9;
+  --muted: #6B6560;
+  --muted-light: #9A958F;
+
+  /* Feedback */
+  --success: #4A7C59;
+  --success-bg: #EFF6F1;
+  --warning: #C4922A;
+  --warning-bg: #FDF6E8;
+  --danger: #B5443A;
+  --danger-bg: #FDF0EF;
+
+  /* AI */
+  --ai-bg: #F0ECF7;
+  --ai-border: #C4B8E9;
+  --ai-glow: rgba(196, 184, 233, 0.25);
+
+  /* States */
+  --selected-bg: #F0ECF7;
+  --selected-border: #C4B8E9;
+  --hover-bg: #FAF6EE;
+  --disabled-bg: #D5D0DC;
+  --disabled-text: #9E97A8;
+
+  /* Badges */
+  --badge-ai: #C4B8E9;
+  --badge-new: #F5E4A8;
+  --badge-fav: #D4788A;
+
+  /* Shadows */
+  --shadow-card: 0 2px 8px rgba(45,42,38,0.05);
+  --shadow-md: 0 4px 12px rgba(45,42,38,0.08);
+  --shadow-lg: 0 8px 24px rgba(45,42,38,0.10);
+  --shadow-ai: 0 4px 16px rgba(196,184,233,0.20);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 150ms;
+  --dur-normal: 250ms;
+  --dur-slow: 400ms;
 }
 
 body {
@@ -75,13 +104,13 @@ body {
 
 /* Typography */
 h1, h2, h3 {
-  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-family: 'Cormorant Garamond', Georgia, serif;
   text-wrap: balance;
 }
 
 /* Focus states */
 :focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--lavender);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -97,4 +126,111 @@ h1, h2, h3 {
 :root {
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* === COMPONENT UTILITIES === */
+
+/* Primary button */
+.btn-primary {
+  background: var(--primary);
+  color: var(--ivory);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+.btn-primary:active {
+  background: var(--primary-active);
+}
+
+/* Secondary button */
+.btn-secondary {
+  background: transparent;
+  color: var(--primary);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease);
+}
+.btn-secondary:hover {
+  background: var(--hover-bg);
+}
+
+/* AI button */
+.btn-ai {
+  background: linear-gradient(135deg, var(--lavender) 0%, var(--primary-light) 100%);
+  color: #FFFFFF;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  box-shadow: var(--shadow-ai);
+  transition: all var(--dur-fast) var(--ease);
+}
+.btn-ai:hover {
+  opacity: 0.92;
+}
+
+/* AI card */
+.ai-card {
+  background: var(--ai-bg);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-ai);
+}
+.ai-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--lavender) 0%, var(--primary-light) 50%, var(--butter) 100%);
+}
+
+/* AI loading dots */
+.ai-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lavender);
+  animation: ai-pulse 1.4s ease-in-out infinite;
+}
+.ai-dot:nth-child(2) { animation-delay: 0.2s; }
+.ai-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ai-pulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.badge-ai {
+  background: var(--badge-ai);
+  color: var(--primary-active);
+}
+.badge-new {
+  background: var(--badge-new);
+  color: var(--fg);
 }
