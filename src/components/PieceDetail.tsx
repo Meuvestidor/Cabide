@@ -478,7 +478,7 @@ export function PieceDetail({
             )}
           </InfoRow>
 
-          <InfoRow icon={Ruler} label="Como me queda">
+          <InfoRow icon={Ruler} label="Como veste">
             {isEditing ? (
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {Object.entries(COMO_ME_QUEDA).map(([key, label]) => (
