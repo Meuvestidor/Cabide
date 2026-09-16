@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/* ============================================
+   MEU VESTIDOR — Design System
+   Mobile-first • Terracotta accent • PT-BR
+   ============================================ */
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-border: var(--border-color);
+  --color-muted: var(--muted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
+}
+
+:root {
+  --bg: #FAFAF8;
+  --fg: #1C1917;
+  --primary: #8B4A2B;
+  --primary-hover: #6F3B22;
+  --surface: #FFFFFF;
+  --surface-alt: #F5F0EB;
+  --border-color: #E7E0D8;
+  --muted: #78716C;
+  --success: #166534;
+  --warning: #92400E;
+  --danger: #991B1B;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C0A09;
+    --fg: #F5F5F4;
+    --primary: #C4795A;
+    --primary-hover: #D4896A;
+    --surface: #1C1917;
+    --surface-alt: #292524;
+    --border-color: #44403C;
+    --muted: #A8A29E;
+    --success: #4ADE80;
+    --warning: #FCD34D;
+    --danger: #F87171;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0C0A09;
+  --fg: #F5F5F4;
+  --primary: #C4795A;
+  --primary-hover: #D4896A;
+  --surface: #1C1917;
+  --surface-alt: #292524;
+  --border-color: #44403C;
+  --muted: #A8A29E;
+  --success: #4ADE80;
+  --warning: #FCD34D;
+  --danger: #F87171;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography */
+h1, h2, h3 {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  text-wrap: balance;
+}
+
+/* Focus states */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Smooth scrolling */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Safe area for PWA */
+:root {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
