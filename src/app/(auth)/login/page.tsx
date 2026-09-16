@@ -61,7 +61,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-dvh flex flex-col relative overflow-hidden" style={{ background: '#FDFBF7' }}>
-      {/* Video background — top section */}
+      {/* Video background — top section (vertical 9:16) */}
       <div className="relative w-full" style={{ height: '42vh', minHeight: '240px' }}>
         <video
           autoPlay
@@ -69,7 +69,8 @@ export default function LoginPage() {
           loop
           playsInline
           poster="/video-poster.jpg"
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full"
+          style={{ objectFit: 'cover', objectPosition: 'center top' }}
         >
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
@@ -84,22 +85,23 @@ export default function LoginPage() {
 
         {/* Brand on video */}
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-6">
-          <div className="flex items-start gap-2">
+          <div className="flex items-center gap-3">
             <h1
               className="leading-none"
               style={{
                 fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontSize: '2.25rem',
+                fontSize: '3rem',
                 fontWeight: 600,
+                fontStyle: 'italic',
                 color: '#FDFBF7',
                 textShadow: '0 2px 12px rgba(45,42,38,0.3)',
               }}
             >
-              Meu<br />Vestidor
+              Cabidê
             </h1>
 
-            {/* Heart-hanger icon — hanger hangs from heart */}
-            <svg width="28" height="36" viewBox="0 0 28 36" fill="none" style={{ marginTop: '4px' }}>
+            {/* Heart-hanger icon */}
+            <svg width="40" height="48" viewBox="0 0 28 36" fill="none">
               <path
                 d="M14 6C14 6 10 2 7 4.5C4 7 6 11 14 16C22 11 24 7 21 4.5C18 2 14 6 14 6Z"
                 stroke="rgba(196,184,233,0.9)"
@@ -119,7 +121,7 @@ export default function LoginPage() {
           </div>
 
           <p
-            className="mt-1"
+            className="mt-2"
             style={{
               fontFamily: "'DM Sans', sans-serif",
               fontSize: '0.7rem',
@@ -130,25 +132,26 @@ export default function LoginPage() {
               textShadow: '0 1px 8px rgba(45,42,38,0.2)',
             }}
           >
-            seu estilo, mais você
+            seu estilo. mais você.
           </p>
         </div>
       </div>
 
       {/* Form section */}
       <div
-        className="flex-1 px-6 pt-4 pb-8 flex flex-col"
+        className="flex-1 px-6 pt-6 pb-8 flex flex-col"
         style={{ background: '#FDFBF7' }}
       >
         <p
           className="text-center mb-6"
           style={{
             fontFamily: "'DM Sans', sans-serif",
-            fontSize: '0.875rem',
-            color: '#6B6560',
+            fontSize: '1.125rem',
+            fontWeight: 400,
+            color: '#2D2A26',
           }}
         >
-          Entre na sua conta para acessar seu armário
+          Acesse seu armário
         </p>
 
         <form onSubmit={handleLogin} className="flex flex-col gap-4 w-full max-w-sm mx-auto">
@@ -214,7 +217,7 @@ export default function LoginPage() {
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
+                placeholder="Digite sua senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -367,14 +370,15 @@ export default function LoginPage() {
         <div
           className="mt-auto pt-6 flex items-center justify-center gap-2"
           style={{
+            fontFamily: "'DM Sans', sans-serif",
             fontSize: '0.625rem',
             letterSpacing: '0.12em',
             color: '#9A958F',
             textTransform: 'uppercase',
           }}
         >
-          {/* Mini heart-hanger */}
-          <svg width="14" height="16" viewBox="0 0 28 36" fill="none" style={{ opacity: 0.5 }}>
+          {/* Mini hanger icon */}
+          <svg width="16" height="18" viewBox="0 0 28 36" fill="none" style={{ opacity: 0.5 }}>
             <path
               d="M14 6C14 6 10 2 7 4.5C4 7 6 11 14 16C22 11 24 7 21 4.5C18 2 14 6 14 6Z"
               stroke="#C4B8E9"
@@ -383,7 +387,7 @@ export default function LoginPage() {
             />
             <path d="M14 16L14 20M14 20L7 25M14 20L21 25" stroke="#C4B8E9" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
-          moda · organização · mais você
+          moda · organização · praticidade
         </div>
       </div>
     </div>
