@@ -43,6 +43,7 @@ export default function InicioPage() {
   const [stats, setStats] = useState({ pecas: 0, looks: 0, favoritos: 0 });
   const [sugestao, setSugestao] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
+  const [userCity, setUserCity] = useState<string>('');
 
   // Load real stats from Supabase
   useEffect(() => {
@@ -51,14 +52,17 @@ export default function InicioPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get user's name from profiles table
+      // Get user's name and city from profiles table
       const { data: profile } = await supabase
         .from('profiles')
-        .select('nome')
+        .select('nome, cidade')
         .eq('id', user.id)
         .single();
       if (profile?.nome) {
         setUserName(profile.nome.split(' ')[0]); // First name only
+      }
+      if (profile?.cidade) {
+        setUserCity(profile.cidade);
       }
 
       const [pecasRes, looksRes, favRes] = await Promise.all([
@@ -103,7 +107,8 @@ export default function InicioPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/weather')
+    const cityQuery = userCity ? `?city=${encodeURIComponent(userCity)}` : '';
+    fetch(`/api/weather${cityQuery}`)
       .then(res => res.json())
       .then(json => {
         if (json.current) {
@@ -112,7 +117,7 @@ export default function InicioPage() {
       })
       .catch(() => setWeather(null))
       .finally(() => setLoadingWeather(false));
-  }, []);
+  }, [userCity]);
 
   return (
     <div className="pt-8">

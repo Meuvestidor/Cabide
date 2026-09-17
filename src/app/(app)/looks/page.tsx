@@ -364,6 +364,7 @@ export default function LooksPage() {
   const [fixedPecas, setFixedPecas] = useState<Set<string>>(new Set());
   const [feedbackFor, setFeedbackFor] = useState<LookTipo | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userCity, setUserCity] = useState<string>('');
 
   // Load initial data
   useEffect(() => {
@@ -378,11 +379,14 @@ export default function LooksPage() {
       // Load profile
       const { data: profile } = await supabase
         .from('profiles')
-        .select('perfil_estilo')
+        .select('perfil_estilo, cidade')
         .eq('id', user.id)
         .single();
       if (profile?.perfil_estilo) {
         setPerfilEstilo(profile.perfil_estilo as PerfilEstilo);
+      }
+      if (profile?.cidade) {
+        setUserCity(profile.cidade);
       }
 
       // Load all available pieces
@@ -652,11 +656,12 @@ export default function LooksPage() {
       <div className="mb-6">
         <RealWeatherCard
           mode="current"
+          city={userCity || undefined}
           onWeatherLoad={(data) => {
             setWeather({
               temp: data.temp,
               description: data.condition,
-              city_name: 'Curitiba',
+              city_name: userCity || 'Curitiba',
               humidity: null,
               wind_speedy: null,
             });
