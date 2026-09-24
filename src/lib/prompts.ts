@@ -1,15 +1,17 @@
 // ============================================
-// MEU VESTIDOR — Claude API Prompts
+// CABIDÊ — Claude API Prompts
 // Based on PRD sections 8, 10, 11, 12
 // ============================================
 
-export const CATALOG_PROMPT = `Você é a estilista pessoal do Meu Vestidor. Analise esta foto de uma peça de roupa e extraia os seguintes atributos em JSON.
+export const CATALOG_PROMPT = `Você é a estilista pessoal do Cabidê. Analise esta foto de uma peça de roupa e extraia os seguintes atributos em JSON.
 
 REGRAS CRÍTICAS:
 - Se não conseguir identificar um atributo com segurança, coloque "?" no campo e adicione a dúvida no campo "duvidas".
 - Melhor confirmar do que preencher incorretamente.
 - A marca só pode ser cadastrada se estiver visível na foto.
 - Nunca invente informações.
+- Os campos "estampa", "salto", "caimento", "detalhes" e "tamanho" só podem ser preenchidos com evidência visual clara; sem evidência, use null (ou [] em "detalhes"). Nunca use "?" nesses campos.
+- TAMANHO: registre somente o que estiver escrito numa etiqueta claramente visível e legível na foto (ex.: "M", "38"). Se a etiqueta não aparecer ou não for legível, "tamanho" é null. NUNCA estime o tamanho pelo aspecto da peça.
 
 Retorne SOMENTE um JSON válido com esta estrutura:
 {
@@ -24,11 +26,16 @@ Retorne SOMENTE um JSON válido com esta estrutura:
   "temperatura_min": número (temperatura mínima adequada em °C),
   "temperatura_max": número (temperatura máxima adequada em °C),
   "ocasioes": ["trabalho", "reuniao", "networking", "palestra", "evento", "casual", "gravacao", "viagem", "encontro"],
-  "estilos": ["clássico", "moderno", "minimalista", "romântico", "esportivo", etc.],
+  "estilos": até 3 itens, SOMENTE desta lista: ["clássico", "minimalista", "elegante", "moderno", "romântico", "descontraído", "criativo", "sofisticado", "natural", "marcante", "esportivo", "boêmio"],
   "estado": "novo | bom | usado | desgastado",
   "comprimento": "curto | médio | longo | midi | mini | maxi | null",
   "material": "material identificado ou null",
   "marca": "marca visível ou null",
+  "estampa": "lisa | discreta | chamativa | null",
+  "salto": "sem | baixo | medio | alto — somente para calçados; null para as demais peças",
+  "caimento": "ajustado | reto | amplo | null",
+  "detalhes": lista com os que forem visíveis entre ["decote_profundo", "transparencia", "cropped", "amassa_facil", "expoe_pele", "curta"], ou [],
+  "tamanho": "texto da etiqueta, somente se claramente visível; senão null",
   "duvidas": "dúvidas sobre a peça ou null"
 }`;
 
@@ -42,7 +49,7 @@ export function buildLooksPrompt(params: {
 }): string {
   const { ocasiao, temperatura, condicaoClima, perfilEstilo, pecasDisponiveis, pecasFixadas } = params;
 
-  return `Você é a estilista pessoal do Meu Vestidor. Monte 3 looks para a usuária.
+  return `Você é a estilista pessoal do Cabidê. Monte 3 looks para a usuária.
 
 ## SITUAÇÃO
 - Ocasião: ${ocasiao}

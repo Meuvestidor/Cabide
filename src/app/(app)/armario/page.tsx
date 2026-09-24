@@ -14,6 +14,7 @@ import {
 import { CATEGORIAS, FORMALIDADE_LABELS, OCASIOES } from '@/lib/constants';
 import { PieceDetail } from '@/components/PieceDetail';
 import type { Categoria } from '@/types/database';
+import { mergeFichaIa, sanitizarAtributos, sanitizarTamanho } from '@/lib/ficha-ia';
 
 interface PecaRow {
   id: string;
@@ -62,6 +63,13 @@ interface CatalogResult {
   comprimento: string | null;
   material: string | null;
   marca: string | null;
+  // Atributos estruturados (só com evidência visual) — ver lib/ficha-ia
+  estampa?: string | null;
+  salto?: string | null;
+  caimento?: string | null;
+  detalhes?: string[];
+  // Tamanho da etiqueta, somente se visível; nunca inferido
+  tamanho?: string | null;
   duvidas: string | null;
 }
 
@@ -135,6 +143,7 @@ function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving }: {
             </Field>
             <Field label="Formalidade">{FORMALIDADE_LABELS[data.formalidade] || `${data.formalidade}/5`}</Field>
           </div>
+          {sanitizarTamanho(data.tamanho) && <Field label="Tamanho (etiqueta)">{sanitizarTamanho(data.tamanho)}</Field>}
           {data.ocasioes?.length > 0 && (
             <Field label="Ocasiões">
               <div className="flex flex-wrap gap-1.5 mt-1">
@@ -279,7 +288,14 @@ export default function ArmarioPage() {
       estilos: catalogResult.estilos, estado: catalogResult.estado,
       comprimento: catalogResult.comprimento, material: catalogResult.material,
       marca: catalogResult.marca, imagem_url: publicUrl,
-      ficha_ia: JSON.stringify(catalogResult), duvidas: catalogResult.duvidas,
+      tamanho: sanitizarTamanho(catalogResult.tamanho),
+      // Merge compatível: preserva a ficha original e só acrescenta atributos válidos
+      ficha_ia: mergeFichaIa(null, {
+        ...catalogResult,
+        estampa: undefined, salto: undefined, caimento: undefined, detalhes: undefined,
+        ...sanitizarAtributos(catalogResult as unknown as Record<string, unknown>),
+      }),
+      duvidas: catalogResult.duvidas,
       revisar: !!catalogResult.duvidas,
     });
     if (iErr) { setError('Não conseguimos salvar a peça agora. Tente novamente.'); setSaving(false); return; }
