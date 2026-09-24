@@ -42,14 +42,14 @@ export function WeatherCard({ mode = 'current', onWeatherLoad, city }: {
   }, [onWeatherLoad, city]);
 
   if (loading) return (
-    <div className="rounded-2xl bg-surface border border-border p-4 flex items-center gap-3">
-      <Loader2 size={20} className="animate-spin text-primary" />
-      <p className="text-sm text-muted">Carregando clima...</p>
+    <div className="py-4 border-y border-border flex items-center gap-3">
+      <Loader2 size={16} className="animate-spin text-muted" />
+      <p className="text-sm text-muted">Carregando clima…</p>
     </div>
   );
 
   if (error || !weather) return (
-    <div className="rounded-2xl bg-surface border border-border p-4">
+    <div className="py-4 border-y border-border">
       <p className="text-sm text-muted">Clima indisponível</p>
     </div>
   );
@@ -59,23 +59,23 @@ export function WeatherCard({ mode = 'current', onWeatherLoad, city }: {
   const WeatherIcon = showData && CONDITION_ICONS[showData.condition] ? CONDITION_ICONS[showData.condition] : CloudSun;
 
   return (
-    <div className="rounded-2xl bg-surface border border-border p-4">
+    <div className="py-4 border-y border-border">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-muted mb-1">
+          <p className="eyebrow mb-1.5">
             {mode === 'tomorrow' ? `Amanhã · ${tomorrow?.weekday || ''}` : 'Agora'} · {current.city}
           </p>
           {mode === 'tomorrow' && tomorrow ? (
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-semibold text-foreground">{tomorrow.max}°</span>
+              <span className="display text-3xl text-foreground">{tomorrow.max}°</span>
               <span className="text-lg text-muted">/ {tomorrow.min}°</span>
             </div>
           ) : (
-            <span className="text-3xl font-semibold text-foreground">{current.temp}°C</span>
+            <span className="display text-3xl text-foreground">{current.temp}°C</span>
           )}
-          <p className="text-sm text-muted mt-1">{showData?.description || current.description}</p>
+          <p className="text-sm text-muted mt-1 capitalize">{showData?.description || current.description}</p>
         </div>
-        <WeatherIcon size={40} strokeWidth={1.2} className="text-primary/60" />
+        <WeatherIcon size={36} strokeWidth={1.1} className="text-gold" />
       </div>
       {mode === 'current' && (
         <div className="flex gap-4 mt-3 pt-3 border-t border-border">
@@ -90,7 +90,7 @@ export function WeatherCard({ mode = 'current', onWeatherLoad, city }: {
         </div>
       )}
       {weather.source === 'estimated' && (
-        <p className="text-[10px] text-muted/60 mt-2">Clima estimado (API não configurada)</p>
+        <p className="text-[10px] text-muted mt-2">Clima estimado</p>
       )}
     </div>
   );

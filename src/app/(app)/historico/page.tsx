@@ -2,20 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-client";
+import Link from "next/link";
 import {
-  Loader2,
-  ShieldCheck,
-  Zap,
-  Flame,
-  ThumbsUp,
-  ThumbsDown,
-  Minus,
-  Calendar,
   Shirt,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { OCASIOES, FORMALIDADE_LABELS } from "@/lib/constants";
+import { OCASIOES, LOOK_TIPOS } from "@/lib/constants";
+import { HangerIcon } from "@/components/icons";
 import type { LookTipo } from "@/types/database";
 
 interface LookRow {
@@ -41,30 +35,15 @@ interface PecaMin {
   imagem_url: string;
 }
 
-const LOOK_CONFIG: Record<
-  LookTipo,
-  { label: string; color: string; icon: typeof ShieldCheck }
-> = {
-  safe: { label: "Safe", color: "text-success", icon: ShieldCheck },
-  cool: { label: "Cool", color: "text-primary", icon: Zap },
-  risky: { label: "Risky", color: "text-warning", icon: Flame },
+const DECISAO_LABELS: Record<string, string> = {
+  usei: "Usei",
+  nao_usei: "Não usei",
+  nao_gostei: "Não gostei",
 };
 
 function DecisaoTag({ decisao }: { decisao: string | null }) {
-  if (!decisao) return null;
-  const map: Record<string, { label: string; icon: typeof ThumbsUp; cls: string }> = {
-    usei: { label: "Usei", icon: ThumbsUp, cls: "bg-success/10 text-success" },
-    nao_usei: { label: "Não usei", icon: Minus, cls: "bg-surface-alt text-muted" },
-    nao_gostei: { label: "Não gostei", icon: ThumbsDown, cls: "bg-danger/10 text-danger" },
-  };
-  const cfg = map[decisao];
-  if (!cfg) return null;
-  const Icon = cfg.icon;
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.cls}`}>
-      <Icon size={12} /> {cfg.label}
-    </span>
-  );
+  if (!decisao || !DECISAO_LABELS[decisao]) return null;
+  return <span className="chip text-[11px] py-0.5">{DECISAO_LABELS[decisao]}</span>;
 }
 
 function LookHistoryCard({
@@ -75,8 +54,7 @@ function LookHistoryCard({
   pecasMap: Map<string, PecaMin>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const config = LOOK_CONFIG[look.tipo];
-  const Icon = config.icon;
+  const info = LOOK_TIPOS[look.tipo];
   const lookPecas = look.pecas
     .map((id) => pecasMap.get(id))
     .filter(Boolean) as PecaMin[];
@@ -87,16 +65,16 @@ function LookHistoryCard({
   );
 
   return (
-    <div className="bg-surface rounded-2xl border border-border overflow-hidden">
+    <div className="border-b border-border">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-3 py-4 text-left"
       >
-        <Icon className={`w-5 h-5 ${config.color} flex-shrink-0`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">
-              {config.label}
+            <span className="eyebrow text-foreground">
+              {info?.nome || look.tipo}
             </span>
             <DecisaoTag decisao={look.decisao} />
           </div>
@@ -114,13 +92,13 @@ function LookHistoryCard({
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-border pt-3">
+        <div className="pb-5">
           {/* Piece thumbnails */}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {lookPecas.map((p) => (
               <div
                 key={p.id}
-                className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-surface-alt"
+                className="flex-shrink-0 w-16 h-[84px] rounded-[2px] overflow-hidden bg-surface-alt"
               >
                 {p.imagem_url ? (
                   <img
@@ -145,7 +123,7 @@ function LookHistoryCard({
             {lookPecas.map((p) => (
               <span
                 key={p.id}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-surface-alt text-muted"
+                className="chip text-[11px] py-0.5"
               >
                 {p.nome}
               </span>
@@ -153,7 +131,7 @@ function LookHistoryCard({
           </div>
 
           {/* Explanation */}
-          <p className="text-sm text-muted mt-3 leading-relaxed">
+          <p className="text-sm text-foreground mt-3 leading-relaxed">
             {look.por_que_funciona}
           </p>
         </div>
@@ -241,14 +219,14 @@ export default function HistoricoPage() {
   const grouped = groupByDate(filteredLooks);
 
   return (
-    <div className="pt-6 pb-4">
-      <h1 className="text-2xl text-foreground mb-1">Histórico de Looks</h1>
-      <p className="text-muted text-sm mb-4">
+    <div className="pt-8 pb-4">
+      <h1 className="display text-[2.25rem] mb-1">Meus looks</h1>
+      <p className="text-muted text-[13px] mb-6">
         {looks.length} {looks.length === 1 ? "look criado" : "looks criados"}
       </p>
 
       {/* Filter chips */}
-      <div className="flex gap-2 mb-4">
+      <div role="tablist" className="flex gap-5 mb-6 border-b border-border">
         {[
           { key: "todas", label: "Todos" },
           { key: "usei", label: "Usados" },
@@ -256,12 +234,10 @@ export default function HistoricoPage() {
         ].map((f) => (
           <button
             key={f.key}
+            role="tab"
+            aria-selected={filter === f.key}
             onClick={() => setFilter(f.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              filter === f.key
-                ? "bg-primary text-white"
-                : "bg-surface border border-border text-foreground"
-            }`}
+            className="tab"
           >
             {f.label}
           </button>
@@ -269,21 +245,20 @@ export default function HistoricoPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center pt-12">
-          <Loader2 size={24} className="animate-spin text-primary" />
+        <div className="flex justify-center pt-16">
+          <div className="loader-line" />
         </div>
       ) : looks.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-border p-12 flex flex-col items-center gap-3 text-center">
-          <div className="w-16 h-16 rounded-full bg-surface-alt flex items-center justify-center">
-            <Calendar className="w-8 h-8 text-muted" />
-          </div>
-          <p className="text-foreground font-medium">Nenhum look criado</p>
-          <p className="text-muted text-xs">
-            Gere seus primeiros looks na aba Criar.
+        <div className="pt-6 text-center max-w-xs mx-auto">
+          <HangerIcon size={28} strokeWidth={1.25} className="mx-auto text-gold mb-5" />
+          <h2 className="display text-[1.75rem] mb-2">Nenhum look ainda</h2>
+          <p className="text-sm text-muted leading-relaxed mb-6">
+            Seus looks aparecem aqui depois que você decidir se usou ou não.
           </p>
+          <Link href="/looks" className="btn btn-primary w-full">Criar meu primeiro look</Link>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {grouped.map(([date, dateLooks]) => {
             const dateLabel = new Date(date + "T12:00:00").toLocaleDateString(
               "pt-BR",
@@ -291,10 +266,10 @@ export default function HistoricoPage() {
             );
             return (
               <div key={date}>
-                <p className="text-xs text-muted font-medium mb-2 capitalize">
+                <p className="display italic text-lg mb-1 first-letter:uppercase">
                   {dateLabel}
                 </p>
-                <div className="space-y-3">
+                <div className="border-t border-border">
                   {dateLooks.map((look) => (
                     <LookHistoryCard
                       key={look.id}

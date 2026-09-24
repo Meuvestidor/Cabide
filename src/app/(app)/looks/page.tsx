@@ -1,31 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
-  Sparkles,
-  Loader2,
-  Cloud,
-  Thermometer,
-  ChevronRight,
-  ThumbsUp,
-  ThumbsDown,
-  Minus,
+  ArrowRight,
   RefreshCw,
-  ShieldCheck,
-  Zap,
-  Flame,
   Shirt,
-  MessageSquare,
   Heart,
   Meh,
   Frown,
   SmilePlus,
   Pin,
+  Check,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-client';
-import { OCASIOES, FORMALIDADE_LABELS } from '@/lib/constants';
+import { OCASIOES, FORMALIDADE_LABELS, LOOK_TIPOS } from '@/lib/constants';
 import type { Peca, PerfilEstilo, LookTipo } from '@/types/database';
-import { WeatherCard as RealWeatherCard } from '@/components/WeatherCard';
+import { WeatherCard } from '@/components/WeatherCard';
 import { FlatLayView } from '@/components/FlatLayView';
 
 // ============================================
@@ -53,29 +45,40 @@ interface GeneratedLook {
 
 type Step = 'select' | 'generating' | 'results';
 
+type ErroLooks = {
+  titulo: string;
+  texto: string;
+  acoes: ('armario' | 'outra_ocasiao' | 'tentar')[];
+};
+
+// Nunca mostrar status HTTP, nome de erro ou mensagem técnica para a usuária.
+function erroHumano(code: string | undefined, ocasiaoLabel: string | null): ErroLooks {
+  if (code === 'POUCAS_PECAS') {
+    return {
+      titulo: 'Ainda faltam peças para essa combinação',
+      texto: ocasiaoLabel
+        ? `Ainda faltam peças adequadas para montar um look de ${ocasiaoLabel.toLowerCase()} com o seu perfil. Adicione mais peças ou escolha outra ocasião.`
+        : 'Ainda faltam peças adequadas para montar um look com o seu perfil. Adicione mais peças ou escolha outra ocasião.',
+      acoes: ['armario', 'outra_ocasiao'],
+    };
+  }
+  if (code === 'CONEXAO') {
+    return {
+      titulo: 'A conexão caiu',
+      texto: 'Verifique sua internet e tente de novo.',
+      acoes: ['tentar'],
+    };
+  }
+  return {
+    titulo: 'Não conseguimos montar seus looks agora',
+    texto: 'Tente novamente em instantes.',
+    acoes: ['tentar'],
+  };
+}
+
 // ============================================
 // Sub-components
 // ============================================
-function WeatherCard({ weather }: { weather: WeatherData | null }) {
-  if (!weather) return null;
-
-  return (
-    <div className="flex items-center gap-3 bg-surface rounded-xl p-3 border border-border">
-      <div className="w-10 h-10 rounded-full bg-surface-alt flex items-center justify-center">
-        <Cloud className="w-5 h-5 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground">{weather.city_name}</p>
-        <p className="text-xs text-muted">{weather.description}</p>
-      </div>
-      <div className="flex items-center gap-1 text-foreground">
-        <Thermometer className="w-4 h-4 text-muted" />
-        <span className="text-lg font-semibold">{weather.temp}°</span>
-      </div>
-    </div>
-  );
-}
-
 function OcasiaoSelector({
   selected,
   onSelect,
@@ -88,12 +91,10 @@ function OcasiaoSelector({
       {Object.entries(OCASIOES).map(([key, label]) => (
         <button
           key={key}
+          type="button"
+          aria-pressed={selected === key}
           onClick={() => onSelect(key)}
-          className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
-            selected === key
-              ? 'bg-primary text-white'
-              : 'bg-surface border border-border text-foreground hover:border-primary/50'
-          }`}
+          className="option text-[13px]"
         >
           {label}
         </button>
@@ -102,40 +103,10 @@ function OcasiaoSelector({
   );
 }
 
-const LOOK_CONFIG: Record<
-  LookTipo,
-  { label: string; emoji: string; color: string; icon: typeof ShieldCheck; desc: string }
-> = {
-  safe: {
-    label: 'Safe',
-    emoji: '🛡️',
-    color: 'text-success',
-    icon: ShieldCheck,
-    desc: 'Combinação segura e coerente',
-  },
-  cool: {
-    label: 'Cool',
-    emoji: '⚡',
-    color: 'text-primary',
-    icon: Zap,
-    desc: 'Combinação mais interessante',
-  },
-  risky: {
-    label: 'Risky',
-    emoji: '🔥',
-    color: 'text-warning',
-    icon: Flame,
-    desc: 'Fora da zona de conforto',
-  },
-};
-
-
 function FeedbackModal({
-  lookTipo,
   onSubmit,
   onCancel,
 }: {
-  lookTipo: LookTipo;
   onSubmit: (comoMeSenti: string, feedback: string) => void;
   onCancel: () => void;
 }) {
@@ -143,34 +114,33 @@ function FeedbackModal({
   const [feedback, setFeedback] = useState('');
 
   const sentiments = [
-    { key: 'amei', label: 'Amei!', icon: Heart, color: 'text-success' },
-    { key: 'gostei', label: 'Gostei', icon: SmilePlus, color: 'text-primary' },
-    { key: 'ok', label: 'Ok', icon: Meh, color: 'text-muted' },
-    { key: 'nao_gostei', label: 'Não curti', icon: Frown, color: 'text-warning' },
+    { key: 'amei', label: 'Amei', icon: Heart },
+    { key: 'gostei', label: 'Gostei', icon: SmilePlus },
+    { key: 'ok', label: 'Ok', icon: Meh },
+    { key: 'nao_gostei', label: 'Não curti', icon: Frown },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end justify-center" onClick={onCancel}>
-      <div className="bg-surface w-full max-w-lg rounded-t-3xl border border-border border-b-0 p-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-center pt-1 pb-3">
-          <div className="w-10 h-1 rounded-full bg-border" />
+    <div className="fixed inset-0 z-50 bg-foreground/40 flex items-end justify-center" onClick={onCancel}>
+      <div className="sheet w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-center pb-4">
+          <div className="w-10 h-1 rounded-full bg-sand" />
         </div>
-        <h3 className="text-base font-semibold text-foreground mb-1">Como você se sentiu?</h3>
-        <p className="text-xs text-muted mb-4">Seu feedback ajuda a melhorar as sugestões</p>
+        <p className="eyebrow mb-2">Depois de usar</p>
+        <h3 className="display text-2xl mb-1">Como você se sentiu?</h3>
+        <p className="text-xs text-muted mb-5">Sua resposta ajuda o Cabidê a entender o que funciona para você.</p>
 
         <div className="grid grid-cols-4 gap-2 mb-4">
-          {sentiments.map(({ key, label, icon: Icon, color }) => (
+          {sentiments.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
+              type="button"
+              aria-pressed={sentiment === key}
               onClick={() => setSentiment(key)}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${
-                sentiment === key
-                  ? 'bg-primary/10 border border-primary'
-                  : 'bg-surface-alt border border-transparent'
-              }`}
+              className="option flex-col justify-center gap-1.5 py-3 text-center"
             >
-              <Icon size={20} className={sentiment === key ? color : 'text-muted'} />
-              <span className="text-[10px] font-medium text-foreground">{label}</span>
+              <Icon size={20} strokeWidth={1.5} />
+              <span className="text-[11px] font-medium">{label}</span>
             </button>
           ))}
         </div>
@@ -180,21 +150,18 @@ function FeedbackModal({
           onChange={(e) => setFeedback(e.target.value)}
           placeholder="Algum comentário? (opcional)"
           rows={3}
-          className="w-full px-3 py-2 rounded-xl text-sm bg-surface-alt border border-border text-foreground placeholder:text-muted resize-none mb-4"
+          className="input py-3 min-h-0 resize-none mb-4"
         />
 
-        <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 py-3 rounded-xl text-sm font-medium bg-surface-alt text-muted">
+        <div className="grid grid-cols-2 gap-3">
+          <button type="button" onClick={onCancel} className="btn btn-outline">
             Pular
           </button>
-          <button
-            onClick={() => onSubmit(sentiment || 'ok', feedback)}
-            className="flex-1 py-3 rounded-xl text-sm font-medium bg-primary text-white"
-          >
+          <button type="button" onClick={() => onSubmit(sentiment || 'ok', feedback)} className="btn btn-primary">
             Salvar
           </button>
         </div>
-        <div className="h-6" />
+        <div className="h-4" />
       </div>
     </div>
   );
@@ -211,115 +178,77 @@ function LookCard({
   onDecision: (tipo: LookTipo, decisao: string) => void;
   savedDecision: string | null;
 }) {
-  const config = LOOK_CONFIG[look.tipo];
-  const Icon = config.icon;
-  const lookPecas = look.pecas
-    .map((id) => pecasMap.get(id))
-    .filter(Boolean) as Peca[];
+  const info = LOOK_TIPOS[look.tipo];
+  const lookPecas = look.pecas.map((id) => pecasMap.get(id)).filter(Boolean) as Peca[];
+
+  const decisoes = [
+    { key: 'usei', label: 'Usei' },
+    { key: 'nao_usei', label: 'Não usei' },
+    { key: 'nao_gostei', label: 'Não gostei' },
+  ];
 
   return (
-    <div className="bg-surface rounded-2xl border border-border overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-        <Icon className={`w-5 h-5 ${config.color}`} />
-        <div className="flex-1">
-          <h3 className="text-base font-semibold text-foreground">
-            {config.label}
-          </h3>
-          <p className="text-xs text-muted">{config.desc}</p>
-        </div>
-        <span className="text-xs bg-surface-alt px-2 py-1 rounded-full text-muted">
-          {FORMALIDADE_LABELS[look.formalidade_resultante] || `F${look.formalidade_resultante}`}
+    <article className="pt-6 border-t border-border">
+      <div className="flex items-baseline justify-between gap-3 mb-1">
+        <p className="eyebrow text-foreground">{info.nome}</p>
+        <span className="text-[11px] text-muted">
+          {FORMALIDADE_LABELS[look.formalidade_resultante] || ''}
         </span>
       </div>
+      <h3 className="display italic text-[1.5rem] leading-snug">{info.curta}</h3>
+      <p className="text-xs text-muted mt-1 mb-4 leading-relaxed">{info.completa}</p>
 
-      {/* Collage de fotos reais */}
-      <div className="p-3">
-        {lookPecas.length > 0 ? (
-          <>
-            <FlatLayView pecas={lookPecas} compact />
-            {/* Piece names list */}
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {lookPecas.map((p) => (
-                <span
-                  key={p.id}
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] bg-surface-alt border border-border text-foreground"
-                >
-                  {p.hex && (
-                    <span
-                      className="w-2.5 h-2.5 rounded-full border border-border/50 flex-shrink-0"
-                      style={{ backgroundColor: p.hex }}
-                    />
-                  )}
-                  {p.nome}
-                </span>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="py-6 text-center">
-            <Shirt className="w-8 h-8 text-muted mx-auto mb-2" />
-            <p className="text-xs text-muted">Peças não encontradas</p>
+      {lookPecas.length > 0 ? (
+        <>
+          <FlatLayView pecas={lookPecas} compact />
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {lookPecas.map((p) => (
+              <span key={p.id} className="chip">
+                {p.hex && (
+                  <span className="w-2.5 h-2.5 rounded-full border border-border flex-shrink-0" style={{ backgroundColor: p.hex }} />
+                )}
+                {p.nome}
+              </span>
+            ))}
           </div>
-        )}
+        </>
+      ) : (
+        <div className="py-8 text-center bg-surface-alt rounded-[4px]">
+          <Shirt size={24} strokeWidth={1.25} className="text-muted mx-auto mb-2" />
+          <p className="text-xs text-muted">Peças não encontradas</p>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <p className="eyebrow mb-1.5">Por que funciona</p>
+        <p className="text-sm text-foreground leading-relaxed">{look.por_que_funciona}</p>
       </div>
 
-      {/* Explanation */}
-      <div className="px-4 pb-3">
-        <p className="text-sm text-muted leading-relaxed">
-          {look.por_que_funciona}
-        </p>
+      <div className="grid grid-cols-3 gap-2 mt-5">
+        {decisoes.map((d) => (
+          <button
+            key={d.key}
+            type="button"
+            aria-pressed={savedDecision === d.key}
+            onClick={() => onDecision(look.tipo, d.key)}
+            className="option justify-center text-[13px] font-medium min-h-11 py-2"
+          >
+            {savedDecision === d.key && <Check size={14} />}
+            {d.label}
+          </button>
+        ))}
       </div>
-
-      {/* Decision buttons */}
-      <div className="flex items-center border-t border-border">
-        <button
-          onClick={() => onDecision(look.tipo, 'usei')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
-            savedDecision === 'usei'
-              ? 'bg-success/10 text-success'
-              : 'text-muted hover:text-success hover:bg-success/5'
-          }`}
-        >
-          <ThumbsUp className="w-4 h-4" />
-          Usei
-        </button>
-        <div className="w-px h-8 bg-border" />
-        <button
-          onClick={() => onDecision(look.tipo, 'nao_usei')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
-            savedDecision === 'nao_usei'
-              ? 'bg-surface-alt text-foreground'
-              : 'text-muted hover:text-foreground hover:bg-surface-alt'
-          }`}
-        >
-          <Minus className="w-4 h-4" />
-          Não usei
-        </button>
-        <div className="w-px h-8 bg-border" />
-        <button
-          onClick={() => onDecision(look.tipo, 'nao_gostei')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
-            savedDecision === 'nao_gostei'
-              ? 'bg-danger/10 text-danger'
-              : 'text-muted hover:text-danger hover:bg-danger/5'
-          }`}
-        >
-          <ThumbsDown className="w-4 h-4" />
-          Não gostei
-        </button>
-      </div>
-    </div>
+    </article>
   );
 }
 
-function GeneratingOverlay() {
+function GeneratingState() {
   const tips = [
-    'Consultando seu armário...',
-    'Verificando temperatura...',
-    'Combinando peças...',
-    'Aplicando seu perfil de estilo...',
-    'Montando looks...',
+    'Consultando seu armário…',
+    'Verificando a temperatura…',
+    'Combinando peças…',
+    'Considerando o seu estilo…',
+    'Montando seus looks…',
   ];
   const [tipIndex, setTipIndex] = useState(0);
 
@@ -331,18 +260,11 @@ function GeneratingOverlay() {
   }, [tips.length]);
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-6">
-      <div className="relative">
-        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-          <Sparkles className="w-10 h-10 text-primary animate-pulse" />
-        </div>
-        <Loader2 className="w-24 h-24 text-primary/30 animate-spin absolute -top-2 -left-2" />
-      </div>
-      <div className="text-center">
-        <p className="text-lg font-semibold text-foreground mb-1">
-          Criando seus looks
-        </p>
-        <p className="text-sm text-muted animate-pulse">{tips[tipIndex]}</p>
+    <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
+      <div className="loader-line" />
+      <div>
+        <p className="display text-[1.75rem] mb-2">Criando seus looks</p>
+        <p className="display italic text-muted">{tips[tipIndex]}</p>
       </div>
     </div>
   );
@@ -351,20 +273,33 @@ function GeneratingOverlay() {
 // ============================================
 // Main Page
 // ============================================
-export default function LooksPage() {
+function LooksPage() {
+  const searchParams = useSearchParams();
+  const ocasiaoParam = searchParams.get('ocasiao');
+  const tempParam = searchParams.get('temp');
+
   const [step, setStep] = useState<Step>('select');
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [ocasiao, setOcasiao] = useState<string | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(() => {
+    const t = tempParam ? Number(tempParam) : NaN;
+    return Number.isFinite(t)
+      ? { temp: t, description: '', city_name: '', humidity: null, wind_speedy: null }
+      : null;
+  });
+  const [ocasiao, setOcasiao] = useState<string | null>(() =>
+    ocasiaoParam && ocasiaoParam in OCASIOES ? ocasiaoParam : null
+  );
   const [pecas, setPecas] = useState<Peca[]>([]);
   const [pecasMap, setPecasMap] = useState<Map<string, Peca>>(new Map());
   const [perfilEstilo, setPerfilEstilo] = useState<PerfilEstilo | null>(null);
   const [looks, setLooks] = useState<GeneratedLook[]>([]);
   const [decisions, setDecisions] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [erro, setErro] = useState<ErroLooks | null>(null);
+  const [avisos, setAvisos] = useState<string[]>([]);
   const [fixedPecas, setFixedPecas] = useState<Set<string>>(new Set());
   const [feedbackFor, setFeedbackFor] = useState<LookTipo | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userCity, setUserCity] = useState<string>('');
+  const [loadingPecas, setLoadingPecas] = useState(true);
 
   // Load initial data
   useEffect(() => {
@@ -401,32 +336,31 @@ export default function LooksPage() {
         (pecasData as Peca[]).forEach((p) => map.set(p.id, p));
         setPecasMap(map);
       }
-
-      // Load weather
-      try {
-        const weatherRes = await fetch('/api/weather');
-        const weatherJson = await weatherRes.json();
-        if (weatherJson.current) {
-          setWeather({
-            temp: weatherJson.current.temp,
-            description: weatherJson.current.description,
-            city_name: weatherJson.current.city,
-            humidity: weatherJson.current.humidity,
-            wind_speedy: weatherJson.current.wind,
-          });
-        }
-      } catch {
-        // Weather is optional
-      }
+      setLoadingPecas(false);
     }
     loadData();
   }, []);
+
+  // Estável: evita que o WeatherCard refaça o fetch a cada renderização
+  const handleWeatherLoad = useCallback(
+    (data: { temp: number; max: number; min: number; condition: string }) => {
+      setWeather({
+        temp: data.temp,
+        description: data.condition,
+        city_name: userCity || 'Curitiba',
+        humidity: null,
+        wind_speedy: null,
+      });
+    },
+    [userCity]
+  );
 
   const handleGenerate = useCallback(async () => {
     if (!ocasiao || pecas.length === 0) return;
 
     setStep('generating');
-    setError(null);
+    setErro(null);
+    setAvisos([]);
     setDecisions({});
 
     try {
@@ -458,7 +392,7 @@ export default function LooksPage() {
         body: JSON.stringify({
           ocasiao,
           temperatura: weather?.temp ?? null,
-          condicaoClima: weather?.description ?? null,
+          condicaoClima: weather?.description || null,
           perfilEstilo,
           pecas: pecasMinimal,
           formalidadeAlvo: 3,
@@ -466,21 +400,22 @@ export default function LooksPage() {
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
-      if (!res.ok || json.error) {
-        setError(json.error || 'Erro ao gerar looks');
+      if (!res.ok || json.error || !json.data?.looks) {
+        setErro(erroHumano(json.code, OCASIOES[ocasiao as keyof typeof OCASIOES] || null));
         setStep('select');
         return;
       }
 
       setLooks(json.data.looks as GeneratedLook[]);
+      setAvisos(Array.isArray(json.data.avisos) ? json.data.avisos : []);
       setStep('results');
     } catch {
-      setError('Erro de conexão. Tente novamente.');
+      setErro(erroHumano('CONEXAO', null));
       setStep('select');
     }
-  }, [ocasiao, pecas, weather, perfilEstilo]);
+  }, [ocasiao, pecas, weather, perfilEstilo, fixedPecas]);
 
   const handleDecision = useCallback(
     async (tipo: LookTipo, decisao: string) => {
@@ -522,7 +457,7 @@ export default function LooksPage() {
         setFeedbackFor(tipo);
       }
     },
-    [userId, looks, pecasMap]
+    [userId, looks]
   );
 
   const handleFeedbackSubmit = useCallback(
@@ -565,6 +500,7 @@ export default function LooksPage() {
   const handleNewLooks = () => {
     setStep('select');
     setLooks([]);
+    setAvisos([]);
     setDecisions({});
     setOcasiao(null);
   };
@@ -573,19 +509,28 @@ export default function LooksPage() {
   // Render
   // ============================================
 
+  if (loadingPecas && step === 'select') {
+    return (
+      <div className="flex justify-center pt-24">
+        <div className="loader-line" />
+      </div>
+    );
+  }
+
   // No pieces state
   if (pecas.length === 0 && step === 'select') {
     return (
       <div className="pt-8">
-        <h1 className="text-2xl text-foreground mb-6">Meus Looks</h1>
-        <div className="rounded-2xl border-2 border-dashed border-border p-12 flex flex-col items-center gap-3 text-center">
-          <div className="w-16 h-16 rounded-full bg-surface-alt flex items-center justify-center">
-            <Shirt className="w-8 h-8 text-muted" />
-          </div>
-          <p className="text-foreground font-medium">Armário vazio</p>
-          <p className="text-muted text-xs leading-relaxed">
-            Adicione peças no seu armário primeiro para poder gerar looks.
+        <h1 className="display text-[2.25rem] mb-8">Looks para você</h1>
+        <div className="pt-6 text-center max-w-xs mx-auto">
+          <Shirt size={28} strokeWidth={1.25} className="mx-auto text-gold mb-5" />
+          <h2 className="display text-[1.75rem] mb-2">Seu armário está vazio</h2>
+          <p className="text-sm text-muted leading-relaxed mb-6">
+            Adicione peças ao seu armário para começar a criar looks.
           </p>
+          <Link href="/armario" className="btn btn-primary w-full">
+            Adicionar peças
+          </Link>
         </div>
       </div>
     );
@@ -595,8 +540,8 @@ export default function LooksPage() {
   if (step === 'generating') {
     return (
       <div className="pt-8">
-        <h1 className="text-2xl text-foreground mb-6">Meus Looks</h1>
-        <GeneratingOverlay />
+        <h1 className="display text-[2.25rem]">Looks para você</h1>
+        <GeneratingState />
       </div>
     );
   }
@@ -605,22 +550,30 @@ export default function LooksPage() {
   if (step === 'results') {
     return (
       <div className="pt-8 pb-4">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl text-foreground">Seus Looks</h1>
+        <div className="flex items-start justify-between mb-2">
+          <h1 className="display text-[2.25rem]">Looks para você</h1>
           <button
+            type="button"
             onClick={handleNewLooks}
-            className="flex items-center gap-1.5 text-sm text-primary font-medium"
+            className="flex items-center gap-1.5 text-sm font-semibold mt-3"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw size={14} />
             Novo
           </button>
         </div>
-        <p className="text-xs text-muted mb-4">
-          {OCASIOES[ocasiao as keyof typeof OCASIOES]} • {weather?.temp ?? '—'}°C •{' '}
-          {pecas.length} peças
+        <p className="text-[13px] text-muted mb-6">
+          {OCASIOES[ocasiao as keyof typeof OCASIOES]} · {weather?.temp ?? '—'}°C · {pecas.length} peças
         </p>
 
-        <div className="flex flex-col gap-4">
+        {avisos.length > 0 && (
+          <div className="mb-6 p-3 border-l-2 border-gold bg-surface-alt">
+            {avisos.map((a, i) => (
+              <p key={i} className="text-[13px] text-foreground leading-relaxed">{a}</p>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-8">
           {looks.map((look) => (
             <LookCard
               key={look.tipo}
@@ -634,7 +587,6 @@ export default function LooksPage() {
 
         {feedbackFor && (
           <FeedbackModal
-            lookTipo={feedbackFor}
             onSubmit={handleFeedbackSubmit}
             onCancel={() => setFeedbackFor(null)}
           />
@@ -645,119 +597,118 @@ export default function LooksPage() {
 
   // Select occasion state (default)
   return (
-    <div className="pt-8">
-      <h1 className="text-2xl text-foreground mb-2">Meus Looks</h1>
-      <p className="text-muted text-sm mb-6">
-        Escolha a ocasião e a IA vai montar 3 opções de looks com as peças do
-        seu armário.
+    <div className="pt-8 pb-4">
+      <h1 className="display text-[2.25rem] mb-2">Looks para você</h1>
+      <p className="text-[13px] text-muted mb-6">
+        Escolha a ocasião e montamos três caminhos com as peças do seu armário.
       </p>
 
-      {/* Weather — real API */}
-      <div className="mb-6">
-        <RealWeatherCard
-          mode="current"
-          city={userCity || undefined}
-          onWeatherLoad={(data) => {
-            setWeather({
-              temp: data.temp,
-              description: data.condition,
-              city_name: userCity || 'Curitiba',
-              humidity: null,
-              wind_speedy: null,
-            });
-          }}
-        />
+      <div className="mb-8">
+        <WeatherCard mode="current" city={userCity || undefined} onWeatherLoad={handleWeatherLoad} />
       </div>
 
       {/* Occasion selector */}
-      <div className="mb-6">
-        <h2 className="text-sm font-medium text-foreground mb-3">
-          Para que ocasião?
-        </h2>
+      <div className="mb-8">
+        <p className="eyebrow mb-3">Para que ocasião?</p>
         <OcasiaoSelector selected={ocasiao} onSelect={setOcasiao} />
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="bg-danger/10 text-danger text-sm rounded-xl p-3 mb-4">
-          {error}
+      {erro && (
+        <div role="alert" className="mb-6 p-4 border-l-2 border-danger bg-surface">
+          <p className="display text-lg mb-1">{erro.titulo}</p>
+          <p className="text-[13px] text-muted leading-relaxed">{erro.texto}</p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            {erro.acoes.includes('armario') && (
+              <Link href="/armario" className="btn btn-primary min-h-10 text-[13px]">Adicionar peças</Link>
+            )}
+            {erro.acoes.includes('outra_ocasiao') && (
+              <button type="button" onClick={() => { setErro(null); setOcasiao(null); }} className="btn btn-outline min-h-10 text-[13px]">
+                Escolher outra ocasião
+              </button>
+            )}
+            {erro.acoes.includes('tentar') && (
+              <button type="button" onClick={handleGenerate} className="btn btn-outline min-h-10 text-[13px]">
+                Tentar de novo
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {/* Fixed pieces selector */}
       {pecas.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Pin size={14} className="text-primary" />
-            <h2 className="text-sm font-medium text-foreground">
-              Peças que quero usar
-            </h2>
-            <span className="text-xs text-muted">({fixedPecas.size} selecionadas)</span>
+        <div className="mb-8">
+          <div className="flex items-baseline gap-2 mb-1">
+            <p className="eyebrow">Peças que quero usar</p>
+            <span className="text-[11px] text-muted">({fixedPecas.size})</span>
           </div>
           <p className="text-xs text-muted mb-3">
-            Opcional: fixe peças e a IA montará os looks incluindo elas.
+            Opcional: fixe peças e os looks serão montados a partir delas.
           </p>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {pecas.slice(0, 20).map((p) => (
-              <button
-                key={p.id}
-                onClick={() => {
-                  setFixedPecas(prev => {
-                    const next = new Set(prev);
-                    if (next.has(p.id)) next.delete(p.id);
-                    else next.add(p.id);
-                    return next;
-                  });
-                }}
-                className={`flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all relative ${
-                  fixedPecas.has(p.id)
-                    ? 'border-primary shadow-sm'
-                    : 'border-transparent opacity-60'
-                }`}
-              >
-                {p.imagem_url ? (
-                  <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-surface-alt flex items-center justify-center">
-                    <Shirt size={16} className="text-muted" />
-                  </div>
-                )}
-                {fixedPecas.has(p.id) && (
-                  <div className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                    <Pin size={8} className="text-white" />
-                  </div>
-                )}
-              </button>
-            ))}
+          <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            {pecas.slice(0, 20).map((p) => {
+              const fixed = fixedPecas.has(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={fixed}
+                  aria-label={p.nome}
+                  onClick={() => {
+                    setFixedPecas(prev => {
+                      const next = new Set(prev);
+                      if (next.has(p.id)) next.delete(p.id);
+                      else next.add(p.id);
+                      return next;
+                    });
+                  }}
+                  className={`flex-shrink-0 w-14 h-[74px] overflow-hidden rounded-[2px] relative transition-all ${
+                    fixed ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : 'opacity-70'
+                  }`}
+                >
+                  {p.imagem_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.imagem_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-surface-alt flex items-center justify-center">
+                      <Shirt size={16} className="text-muted" />
+                    </div>
+                  )}
+                  {fixed && (
+                    <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                      <Pin size={8} className="text-background" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* Generate button */}
-      <button
-        onClick={handleGenerate}
-        disabled={!ocasiao}
-        className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-medium text-base transition-all ${
-          ocasiao
-            ? 'bg-primary text-white hover:bg-primary-hover active:scale-[0.98]'
-            : 'bg-surface-alt text-muted cursor-not-allowed'
-        }`}
-      >
-        <Sparkles className="w-5 h-5" />
-        Gerar meus looks
-        {ocasiao && <ChevronRight className="w-4 h-4" />}
+      <button type="button" onClick={handleGenerate} disabled={!ocasiao} className="btn btn-primary w-full">
+        Criar meus looks
+        {ocasiao && <ArrowRight size={16} />}
       </button>
 
-      {/* Piece count info */}
       <p className="text-center text-xs text-muted mt-3">
         {pecas.length} peças disponíveis no armário
       </p>
-
-      {!perfilEstilo && (
-        <p className="text-center text-xs text-warning mt-2">
-          Complete seu perfil de estilo para looks mais personalizados
-        </p>
-      )}
     </div>
+  );
+}
+
+export default function LooksPageWrapper() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center pt-24">
+          <div className="loader-line" />
+        </div>
+      }
+    >
+      <LooksPage />
+    </Suspense>
   );
 }

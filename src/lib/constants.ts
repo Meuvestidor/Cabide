@@ -1,5 +1,5 @@
 // ============================================
-// MEU VESTIDOR — Constants
+// CABIDÊ — Constants
 // From PRD sections 7, 10, 12
 // ============================================
 
@@ -77,46 +77,31 @@ export const FLAT_LAY_POSITIONS: Record<string, {
   joias: { gridArea: '1 / 2 / 2 / 3', zIndex: 2 },
 };
 
-// Style interview questions (PRD section 6)
-export const STYLE_INTERVIEW_QUESTIONS = [
-  {
-    id: 'profissao',
-    question: 'Qual é a sua profissão ou atividade principal?',
-    field: 'vida_profissional.profissao',
+// ============================================
+// Tipos de look — nomes visíveis ao usuário
+// ============================================
+// Os códigos 'safe' | 'cool' | 'risky' são apenas representação interna
+// (valores já gravados em looks.tipo). Nunca exibi-los na interface.
+// Os três caminhos NÃO são um ranking: mesma hierarquia visual.
+export const LOOK_TIPOS = {
+  safe: {
+    nome: 'Essencial',
+    curta: 'Você, como já se veste.',
+    completa:
+      'Looks que respeitam seu estilo atual e combinam com aquilo que você já sabe que funciona para você.',
   },
-  {
-    id: 'compromissos',
-    question: 'Quais são os tipos de compromissos que você tem durante a semana? (reuniões, palestras, networking, eventos...)',
-    field: 'vida_profissional.compromissos',
+  cool: {
+    nome: 'Autoral',
+    curta: 'Você + uma nova possibilidade.',
+    completa:
+      'Looks que mantêm sua essência, mas introduzem uma combinação, proporção ou peça diferente para ampliar seu repertório.',
   },
-  {
-    id: 'pecas_basicas',
-    question: 'Quando você não quer pensar no que vestir, quais são as 3 peças que você sempre escolhe?',
-    field: 'estilo.pecas_basicas',
+  risky: {
+    nome: 'Ousado',
+    curta: 'Uma versão mais experimental de você.',
+    completa:
+      'Looks que saem mais da sua zona de conforto e propõem algo novo, sempre respeitando seus limites.',
   },
-  {
-    id: 'cores_preferidas',
-    question: 'Quais cores você mais gosta de usar?',
-    field: 'estilo.cores_preferidas',
-  },
-  {
-    id: 'cores_evita',
-    question: 'Tem alguma cor que você evita?',
-    field: 'estilo.cores_evita',
-  },
-  {
-    id: 'percepcao',
-    question: 'Como você gosta de ser percebida profissionalmente? (ex: confiante, criativa, elegante, acessível...)',
-    field: 'estilo.como_quer_ser_percebida',
-  },
-  {
-    id: 'vetos',
-    question: 'Existe alguma peça ou tipo de roupa que você nunca usa?',
-    field: 'limites.pecas_nunca_usa',
-  },
-  {
-    id: 'tamanhos',
-    question: 'Qual o seu tamanho de roupa e de calçado?',
-    field: 'limites.tamanho_roupa',
-  },
-];
+} as const;
+
+export const LOOK_TIPO_ORDEM = ['safe', 'cool', 'risky'] as const;
