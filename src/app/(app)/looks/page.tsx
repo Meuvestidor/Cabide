@@ -18,6 +18,8 @@ import { createClient } from '@/lib/supabase-client';
 import { OCASIOES, FORMALIDADE_LABELS, LOOK_TIPOS } from '@/lib/constants';
 import type { Peca, PerfilEstilo, LookTipo } from '@/types/database';
 import { WeatherCard } from '@/components/WeatherCard';
+import { atributosDaFicha } from '@/lib/ficha-ia';
+import { perfilAtivo } from '@/lib/retrato';
 import { FlatLayView } from '@/components/FlatLayView';
 
 // ============================================
@@ -384,6 +386,10 @@ function LooksPage() {
         disponivel: p.disponivel,
         vezes_usada: p.vezes_usada,
         ultima_utilizacao: p.ultima_utilizacao,
+        // Sinais de caimento e limites: calculados no servidor a partir destes campos
+        tamanho: p.tamanho,
+        como_me_queda: p.como_me_queda,
+        atributos: atributosDaFicha(p.ficha_ia),
       }));
 
       const res = await fetch('/api/looks', {
@@ -695,6 +701,12 @@ function LooksPage() {
       <p className="text-center text-xs text-muted mt-3">
         {pecas.length} peças disponíveis no armário
       </p>
+
+      {!perfilAtivo(perfilEstilo) && (
+        <p className="text-center text-xs text-muted mt-2">
+          <Link href="/estilo" className="link">Complete seu perfil de estilo</Link> para looks mais personalizados.
+        </p>
+      )}
     </div>
   );
 }

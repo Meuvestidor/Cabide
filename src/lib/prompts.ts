@@ -43,16 +43,30 @@ export function buildLooksPrompt(params: {
   ocasiao: string;
   temperatura: number | null;
   condicaoClima: string | null;
-  perfilEstilo: Record<string, unknown>;
+  formalidadeAlvo: number;
+  /** Regras do Retrato Cabidê confirmado (camadas B e C). null = sem perfil confirmado. */
+  regrasPerfil: string | null;
+  /** Regras gerais aprendidas do comportamento (pode ser vazio). */
+  regrasComportamento: string;
   pecasDisponiveis: Array<Record<string, unknown>>;
   pecasFixadas?: string[];
 }): string {
-  const { ocasiao, temperatura, condicaoClima, perfilEstilo, pecasDisponiveis, pecasFixadas } = params;
+  const {
+    ocasiao,
+    temperatura,
+    condicaoClima,
+    formalidadeAlvo,
+    regrasPerfil,
+    regrasComportamento,
+    pecasDisponiveis,
+    pecasFixadas,
+  } = params;
 
-  return `Você é a estilista pessoal do Cabidê. Monte 3 looks para a usuária.
+  return `Você é a estilista pessoal do Cabidê. Monte 3 looks para a usuária, um para cada caminho: ESSENCIAL, AUTORAL e OUSADO.
 
 ## SITUAÇÃO
 - Ocasião: ${ocasiao}
+- Formalidade alvo: ${formalidadeAlvo} (1=casual, 2=smart casual, 3=business casual, 4=arrumada, 5=formal)
 ${temperatura !== null ? `- Temperatura: ${temperatura}°C` : ''}
 ${condicaoClima ? `- Condição do tempo: ${condicaoClima}` : ''}
 
@@ -61,10 +75,29 @@ A usuária quer usar estas peças. Elas DEVEM aparecer em TODOS os 3 looks:
 IDs fixados: ${JSON.stringify(pecasFixadas)}
 Monte os looks INCLUINDO essas peças obrigatoriamente.
 ` : ''}
-## PERFIL DA USUÁRIA
-${JSON.stringify(perfilEstilo, null, 2)}
-
+${regrasPerfil ?? `## CAMINHOS (sem perfil de estilo confirmado — use critérios gerais de estilo)
+Os três caminhos não são um ranking; nenhum é melhor que o outro.
+- ESSENCIAL: "Você, como já se veste." Combinação segura e coerente com o que ela costuma usar (peças mais usadas).
+- AUTORAL: "Você + uma nova possibilidade." Mantém a essência e introduz uma combinação, proporção ou peça diferente.
+- OUSADO: "Uma versão mais experimental de você." Sai da zona de conforto, mas precisa ser utilizável e adequado à ocasião e ao clima.`}
+${regrasComportamento ? `
+## APRENDIZADOS DO USO REAL
+${regrasComportamento}
+` : ''}
 ## PEÇAS DISPONÍVEIS NO ARMÁRIO
+Os limites da usuária (vetos, cores evitadas, incompatibilidades de conforto) JÁ FORAM APLICADOS: estas são as únicas peças permitidas. NUNCA reintroduza peças fora desta lista, em nenhum dos caminhos.
+
+Campo "sinais" de cada peça:
+- confianca: peça muito usada, segura para ESSENCIAL
+- redescobrir: peça pouco usada, boa candidata a ganhar vida nova
+- peca_querida: ela amou usar esta peça
+- ancora: peça que ela considera "a cara dela"
+- penalizada_feedback: esteve em looks que ela rejeitou — use só se for claramente a melhor opção
+- penalidade_salto_alto / penalidade_rigida: conforto é prioridade para ela — evite
+- penalidade_caimento / possible_caimento_amplo: a peça pode ficar mais folgada do que ela prefere — evite como peça principal
+- possible_caimento_pequeno / possible_numeracao_diferente: pode não servir bem — prefira alternativas
+Esses sinais são sobre a peça, nunca sobre o corpo dela: não os mencione na explicação.
+
 ${JSON.stringify(pecasDisponiveis, null, 2)}
 
 ## PROCEDIMENTO OBRIGATÓRIO (PRD seção 10)
@@ -77,24 +110,19 @@ Elimine:
 - Peças indisponíveis (disponivel = false)
 - Peças fora da temperatura atual
 - Peças inadequadas para a ocasião
-- Peças com formalidade incompatível (diferença > 1.5 pontos)
+- Peças com formalidade incompatível (diferença > 1.5 pontos da formalidade alvo)
 - Peças usadas nos últimos 3 dias (ultima_utilizacao)
-- Peças que a usuária vetou
 - Peças com dúvidas não resolvidas
 
 ### Passo 3 — Criar universo válido
 Liste mentalmente as peças que sobreviveram aos filtros.
 
 ### Passo 4 — Compor 3 looks
-Usando SOMENTE peças do universo válido:
-
-**SAFE** — O mais seguro. Combinação coerente com o estilo habitual da usuária.
-**COOL** — Mais interessante. Use proporção menos óbvia, peça pouco utilizada, ou combinação de cores diferente.
-**RISKY** — Fora da zona habitual. Mas DEVE ser utilizável, adequada à ocasião, ao clima e coerente com o perfil.
+Usando SOMENTE peças do universo válido: um ESSENCIAL, um AUTORAL e um OUSADO, seguindo as regras acima.
 
 ### Passo 5 — Verificar
 Antes de apresentar, verifique CADA peça de CADA look:
-- Ela existe no armário? (verificar ID)
+- Ela existe na lista acima? (verificar ID)
 - Ela está disponível?
 - Ela é adequada para a temperatura?
 - Ela é adequada para a ocasião?
@@ -110,26 +138,27 @@ Antes de apresentar, verifique CADA peça de CADA look:
 - Os 3 looks NÃO devem repetir a mesma peça protagonista.
 
 ## REGRA DE OURO
-Nunca julgar o corpo. Pode falar sobre proporção, comprimento, volume, corte, cor, combinação, formalidade. NUNCA sobre tipo de corpo.
+Nunca julgar o corpo. Pode falar sobre proporção, comprimento, volume, corte, cor, combinação, formalidade. NUNCA sobre tipo de corpo, tamanho ou peso.
+Em "por_que_funciona", escreva em português natural, em segunda pessoa, sem mencionar tecnologia, inteligência artificial ou os nomes internos dos sinais.
 
 ## FORMATO DE RESPOSTA
 Retorne SOMENTE um JSON válido:
 {
   "looks": [
     {
-      "tipo": "safe",
+      "tipo": "essencial",
       "pecas": ["id-da-peca-1", "id-da-peca-2", ...],
-      "por_que_funciona": "explicação em português natural de por que este look funciona para a ocasião",
+      "por_que_funciona": "explicação em português natural de por que este look funciona para você e para a ocasião",
       "formalidade_resultante": número
     },
     {
-      "tipo": "cool",
+      "tipo": "autoral",
       "pecas": ["id-da-peca-1", "id-da-peca-2", ...],
       "por_que_funciona": "explicação",
       "formalidade_resultante": número
     },
     {
-      "tipo": "risky",
+      "tipo": "ousado",
       "pecas": ["id-da-peca-1", "id-da-peca-2", ...],
       "por_que_funciona": "explicação",
       "formalidade_resultante": número
