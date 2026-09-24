@@ -1,15 +1,40 @@
 import type { Metadata, Viewport } from "next";
+import { Newsreader, Manrope, Caveat } from "next/font/google";
 import "./globals.css";
 
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
+  display: "swap",
+});
+
+// Usada apenas em notas com aparência manuscrita (Início)
+const caveat = Caveat({
+  subsets: ["latin"],
+  variable: "--font-caveat",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Meu Vestidor",
+  title: "Cabidê",
   description:
-    "Sua estilista pessoal com IA. Digitalize seu armário e receba sugestões de looks inteligentes.",
+    "Seu estilo, mais você. Organize seu armário e descubra looks que fazem sentido para a sua vida.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/icon-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Meu Vestidor",
+    title: "Cabidê",
   },
 };
 
@@ -18,20 +43,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#5E4F72",
+  themeColor: "#2E3D32",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="pt-BR" className={`${newsreader.variable} ${manrope.variable} ${caveat.variable}`}>
       <body className="min-h-dvh flex flex-col antialiased">
         {children}
       </body>
