@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { OCASIOES } from '@/lib/constants';
 import { createClient } from '@/lib/supabase-client';
+import { ocasioesDoPerfil, perfilAtivo } from '@/lib/retrato';
 
 type WeatherData = {
   temp: number;
@@ -57,6 +58,17 @@ function WeatherIcon({ description }: { description: string }) {
   return <Icon size={26} strokeWidth={1.25} className="text-gold" />;
 }
 
+/** Ocasiões do perfil primeiro (na ordem dos contextos), depois as demais; nenhuma é removida. */
+function ordenarOcasioes(prioritarias: string[]): [string, string][] {
+  const todas = Object.entries(OCASIOES) as [string, string][];
+  if (!prioritarias.length) return todas;
+  const rank = (k: string) => {
+    const i = prioritarias.indexOf(k);
+    return i === -1 ? prioritarias.length + todas.findIndex(([x]) => x === k) : i;
+  };
+  return [...todas].sort((a, b) => rank(a[0]) - rank(b[0]));
+}
+
 function getGreeting() {
   const hour = new Date().getHours();
   if (hour < 12) return 'Bom dia';
@@ -78,6 +90,7 @@ export default function InicioPage() {
   const [sugestaoFoto, setSugestaoFoto] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
   const [userCity, setUserCity] = useState<string>('');
+  const [ocasioesPrioritarias, setOcasioesPrioritarias] = useState<string[]>([]);
 
   // Load real stats from Supabase
   useEffect(() => {
@@ -89,7 +102,7 @@ export default function InicioPage() {
       // Get user's name and city from profiles table
       const { data: profile } = await supabase
         .from('profiles')
-        .select('nome, cidade')
+        .select('nome, cidade, perfil_estilo')
         .eq('id', user.id)
         .single();
       if (profile?.nome) {
@@ -98,6 +111,8 @@ export default function InicioPage() {
       if (profile?.cidade) {
         setUserCity(profile.cidade);
       }
+      // Retrato confirmado: ocasiões da vida real dela aparecem primeiro
+      setOcasioesPrioritarias(ocasioesDoPerfil(perfilAtivo(profile?.perfil_estilo)));
 
       const [pecasRes, looksRes, usadosRes] = await Promise.all([
         supabase.from('pecas').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -248,7 +263,7 @@ export default function InicioPage() {
         <p className="eyebrow mb-4">O que você vai fazer hoje?</p>
 
         <div className="grid grid-cols-2 gap-2">
-          {Object.entries(OCASIOES).map(([key, label]) => {
+          {ordenarOcasioes(ocasioesPrioritarias).map(([key, label]) => {
             const Icon = OCASIAO_ICONS[key] || Shirt;
             const selected = selectedOcasiao === key;
             return (
