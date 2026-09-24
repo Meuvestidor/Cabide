@@ -8,7 +8,7 @@ import {
   AlertCircle,
   Ruler,
   Tag,
-  Sparkles,
+  Palette,
   ShoppingBag,
   ChevronDown,
   ChevronUp,
@@ -228,28 +228,28 @@ export function PieceDetail({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 bg-foreground/40"
       onClick={onClose}
     >
       <div
-        className="absolute inset-x-0 bottom-0 bg-surface rounded-t-3xl border border-border border-b-0 max-h-[92dvh] overflow-y-auto"
+        className="sheet absolute inset-x-0 bottom-0 max-w-lg mx-auto max-h-[92dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-border" />
+          <div className="w-10 h-1 rounded-full bg-sand" />
         </div>
 
-        <div className="sticky top-0 bg-surface/95 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-surface border-b border-border px-4 py-3 flex items-center justify-between z-10">
           <div className="flex-1 min-w-0 pr-3">
             {isEditing ? (
               <input
                 type="text"
                 value={editData.nome}
                 onChange={(e) => setEditData(prev => ({ ...prev, nome: e.target.value }))}
-                className="text-lg font-semibold text-foreground bg-transparent border-b border-primary w-full outline-none"
+                className="display text-xl text-foreground bg-transparent border-b border-primary w-full outline-none"
               />
             ) : (
-              <h2 className="text-lg font-semibold text-foreground truncate">
+              <h2 className="display text-xl text-foreground truncate">
                 {editData.nome}
               </h2>
             )}
@@ -262,7 +262,7 @@ export function PieceDetail({
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="w-9 h-9 rounded-full bg-primary flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-[4px] bg-primary flex items-center justify-center transition-colors"
               >
                 {saving ? (
                   <Loader2 size={16} className="text-white animate-spin" />
@@ -273,14 +273,14 @@ export function PieceDetail({
             ) : (
               <button
                 onClick={() => setIsEditing(true)}
-                className="w-9 h-9 rounded-full hover:bg-surface-alt flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-[4px] hover:bg-surface-alt flex items-center justify-center transition-colors"
               >
                 <Edit3 size={16} className="text-primary" />
               </button>
             )}
             <button
               onClick={() => { setIsEditing(false); setEditData({ ...peca }); onClose(); }}
-              className="w-9 h-9 rounded-full hover:bg-surface-alt flex items-center justify-center transition-colors"
+              className="w-9 h-9 rounded-[4px] hover:bg-surface-alt flex items-center justify-center transition-colors"
             >
               <X size={18} className="text-muted" />
             </button>
@@ -288,7 +288,7 @@ export function PieceDetail({
         </div>
 
         <div className="px-4 pt-4">
-          <div className="rounded-2xl overflow-hidden aspect-[3/4] bg-surface-alt relative">
+          <div className="rounded-[4px] overflow-hidden aspect-[3/4] bg-surface-alt relative">
             {peca.imagem_url ? (
               <img src={peca.imagem_url} alt={peca.nome} className="w-full h-full object-cover" />
             ) : (
@@ -297,13 +297,13 @@ export function PieceDetail({
               </div>
             )}
             {editData.hex && (
-              <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-surface/90 backdrop-blur-sm rounded-full px-3 py-1.5">
+              <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-surface/90 rounded-[2px] px-3 py-1.5">
                 <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: editData.hex }} />
                 <span className="text-xs font-medium text-foreground">{editData.cor}</span>
               </div>
             )}
             {editData.estado !== 'disponivel' && (
-              <div className="absolute top-3 right-3 bg-warning/20 backdrop-blur-sm rounded-full px-3 py-1">
+              <div className="absolute top-3 right-3 bg-surface/90 rounded-[2px] px-3 py-1">
                 <span className="text-xs font-medium text-warning">
                   {ESTADOS_PECA.find(e => e.value === editData.estado)?.label || editData.estado}
                 </span>
@@ -322,10 +322,10 @@ export function PieceDetail({
                   key={est.value}
                   type="button"
                   onClick={() => setEditData(prev => ({ ...prev, estado: est.value, disponivel: est.value === 'disponivel' }))}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-[2px] text-xs font-medium transition-colors border ${
                     editData.estado === est.value
-                      ? 'bg-primary text-white'
-                      : 'bg-surface-alt text-muted border border-border'
+                      ? 'bg-primary text-background border-primary'
+                      : 'bg-surface text-foreground border-border'
                   }`}
                 >
                   {est.label}
@@ -337,11 +337,11 @@ export function PieceDetail({
 
         <div className="px-4 pt-4">
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-surface-alt p-3 text-center">
-              <p className="text-2xl font-semibold text-foreground">{peca.vezes_usada}</p>
+            <div className="rounded-[4px] bg-surface-alt p-3 text-center">
+              <p className="display text-3xl text-foreground">{peca.vezes_usada}</p>
               <p className="text-[10px] text-muted mt-0.5">vezes usada</p>
             </div>
-            <div className="rounded-xl bg-surface-alt p-3 text-center">
+            <div className="rounded-[4px] bg-surface-alt p-3 text-center">
               {isEditing ? (
                 <>
                   <StatBadgeEditable value={editData.formalidade} onChange={(v) => setEditData(prev => ({ ...prev, formalidade: v }))} />
@@ -355,7 +355,7 @@ export function PieceDetail({
                 </>
               )}
             </div>
-            <div className="rounded-xl bg-surface-alt p-3 text-center">
+            <div className="rounded-[4px] bg-surface-alt p-3 text-center">
               {isEditing ? (
                 <>
                   <StatBadgeEditable value={editData.protagonismo} onChange={(v) => setEditData(prev => ({ ...prev, protagonismo: v }))} />
@@ -373,10 +373,10 @@ export function PieceDetail({
         </div>
 
         {peca.duvidas && (
-          <div className="mx-4 mt-3 rounded-xl bg-warning/10 border border-warning/20 p-3">
+          <div className="mx-4 mt-3 border-l-2 border-warning bg-surface-alt p-3">
             <div className="flex items-center gap-2 mb-1">
               <AlertCircle size={14} className="text-warning" />
-              <p className="text-xs text-warning font-medium">Dúvidas da IA</p>
+              <p className="eyebrow text-warning">Pontos a confirmar</p>
             </div>
             <p className="text-sm text-foreground">{peca.duvidas}</p>
           </div>
@@ -390,14 +390,14 @@ export function PieceDetail({
                   type="number"
                   value={editData.temperatura_min}
                   onChange={(e) => setEditData(prev => ({ ...prev, temperatura_min: Number(e.target.value) }))}
-                  className="w-16 px-2 py-1 text-sm rounded-lg border border-border bg-surface text-foreground"
+                  className="w-16 px-2 py-1 text-sm rounded-[2px] border border-border bg-surface text-foreground"
                 />
                 <span>–</span>
                 <input
                   type="number"
                   value={editData.temperatura_max}
                   onChange={(e) => setEditData(prev => ({ ...prev, temperatura_max: Number(e.target.value) }))}
-                  className="w-16 px-2 py-1 text-sm rounded-lg border border-border bg-surface text-foreground"
+                  className="w-16 px-2 py-1 text-sm rounded-[2px] border border-border bg-surface text-foreground"
                 />
                 <span className="text-xs text-muted">°C</span>
               </div>
@@ -414,10 +414,10 @@ export function PieceDetail({
                     key={key}
                     type="button"
                     onClick={() => toggleOcasiao(key)}
-                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
+                    className={`px-2 py-0.5 rounded-[2px] text-xs transition-colors ${
                       editData.ocasioes.includes(key)
-                        ? 'bg-primary/20 text-primary font-medium'
-                        : 'bg-surface-alt text-muted border border-border'
+                        ? 'bg-primary text-background border border-primary font-medium'
+                        : 'bg-surface text-foreground border border-border'
                     }`}
                   >
                     {label}
@@ -427,7 +427,7 @@ export function PieceDetail({
             ) : editData.ocasioes?.length > 0 ? (
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {editData.ocasioes.map((o, i) => (
-                  <span key={i} className="px-2 py-0.5 rounded-full bg-primary/10 text-xs text-primary">{o}</span>
+                  <span key={i} className="chip">{OCASIOES[o as Ocasiao] || o}</span>
                 ))}
               </div>
             ) : (
@@ -436,19 +436,19 @@ export function PieceDetail({
           </InfoRow>
 
           {(editData.estilos?.length > 0 || isEditing) && (
-            <InfoRow icon={Sparkles} label="Estilos">
+            <InfoRow icon={Palette} label="Estilos">
               {isEditing ? (
                 <input
                   type="text"
                   value={editData.estilos?.join(', ') || ''}
                   onChange={(e) => setEditData(prev => ({ ...prev, estilos: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
                   placeholder="casual, elegante, moderno..."
-                  className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-surface text-foreground"
+                  className="w-full px-2 py-1 text-sm rounded-[2px] border border-border bg-surface text-foreground"
                 />
               ) : (
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {editData.estilos.map((e, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-full bg-surface-alt text-xs text-muted border border-border">{e}</span>
+                    <span key={i} className="chip">{e}</span>
                   ))}
                 </div>
               )}
@@ -463,10 +463,10 @@ export function PieceDetail({
                     key={key}
                     type="button"
                     onClick={() => toggleTemporada(key)}
-                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
+                    className={`px-2 py-0.5 rounded-[2px] text-xs transition-colors ${
                       editData.temporadas.includes(key)
-                        ? 'bg-primary/20 text-primary font-medium'
-                        : 'bg-surface-alt text-muted border border-border'
+                        ? 'bg-primary text-background border border-primary font-medium'
+                        : 'bg-surface text-foreground border border-border'
                     }`}
                   >
                     {label}
@@ -486,10 +486,10 @@ export function PieceDetail({
                     key={key}
                     type="button"
                     onClick={() => setEditData(prev => ({ ...prev, como_me_queda: prev.como_me_queda === key ? null : key }))}
-                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
+                    className={`px-2 py-0.5 rounded-[2px] text-xs transition-colors ${
                       editData.como_me_queda === key
-                        ? 'bg-primary/20 text-primary font-medium'
-                        : 'bg-surface-alt text-muted border border-border'
+                        ? 'bg-primary text-background border border-primary font-medium'
+                        : 'bg-surface text-foreground border border-border'
                     }`}
                   >
                     {label}
@@ -508,7 +508,7 @@ export function PieceDetail({
                   type="text"
                   value={editData.material || ''}
                   onChange={(e) => setEditData(prev => ({ ...prev, material: e.target.value || null }))}
-                  className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-surface text-foreground"
+                  className="w-full px-2 py-1 text-sm rounded-[2px] border border-border bg-surface text-foreground"
                 />
               ) : (
                 <>{editData.material}</>
@@ -522,7 +522,7 @@ export function PieceDetail({
                   type="text"
                   value={editData.comprimento || ''}
                   onChange={(e) => setEditData(prev => ({ ...prev, comprimento: e.target.value || null }))}
-                  className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-surface text-foreground"
+                  className="w-full px-2 py-1 text-sm rounded-[2px] border border-border bg-surface text-foreground"
                 />
               ) : (
                 <>{editData.comprimento}</>
@@ -541,40 +541,40 @@ export function PieceDetail({
           </button>
           {showMore && (
             <div className="space-y-2">
-              <div className="rounded-xl bg-surface-alt p-3">
+              <div className="rounded-[4px] bg-surface-alt p-3">
                 <p className="text-xs text-muted mb-0.5">Marca</p>
                 {isEditing ? (
                   <input
                     type="text"
                     value={editData.marca || ''}
                     onChange={(e) => setEditData(prev => ({ ...prev, marca: e.target.value || null }))}
-                    className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-surface text-foreground"
+                    className="w-full px-2 py-1 text-sm rounded-[2px] border border-border bg-surface text-foreground"
                   />
                 ) : (
                   <p className="text-sm font-medium text-foreground">{editData.marca || '—'}</p>
                 )}
               </div>
-              <div className="rounded-xl bg-surface-alt p-3">
+              <div className="rounded-[4px] bg-surface-alt p-3">
                 <p className="text-xs text-muted mb-0.5">Tamanho</p>
                 {isEditing ? (
                   <input
                     type="text"
                     value={editData.tamanho || ''}
                     onChange={(e) => setEditData(prev => ({ ...prev, tamanho: e.target.value || null }))}
-                    className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-surface text-foreground"
+                    className="w-full px-2 py-1 text-sm rounded-[2px] border border-border bg-surface text-foreground"
                   />
                 ) : (
                   <p className="text-sm font-medium text-foreground">{editData.tamanho || '—'}</p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-surface-alt p-3">
+                <div className="rounded-[4px] bg-surface-alt p-3">
                   <p className="text-xs text-muted mb-0.5">Estado</p>
                   <p className="text-sm font-medium text-foreground">
                     {ESTADOS_PECA.find(e => e.value === editData.estado)?.label || editData.estado}
                   </p>
                 </div>
-                <div className="rounded-xl bg-surface-alt p-3">
+                <div className="rounded-[4px] bg-surface-alt p-3">
                   <p className="text-xs text-muted mb-0.5">Hex</p>
                   <div className="flex items-center gap-1.5">
                     {editData.hex && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: editData.hex }} />}
@@ -583,23 +583,23 @@ export function PieceDetail({
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-surface-alt p-3">
+                <div className="rounded-[4px] bg-surface-alt p-3">
                   <p className="text-xs text-muted mb-0.5">Adicionada</p>
                   <p className="text-sm text-foreground">{addedDate}</p>
                 </div>
-                <div className="rounded-xl bg-surface-alt p-3">
+                <div className="rounded-[4px] bg-surface-alt p-3">
                   <p className="text-xs text-muted mb-0.5">Último uso</p>
                   <p className="text-sm text-foreground">{lastUsed || 'Nunca'}</p>
                 </div>
               </div>
-              <div className="rounded-xl bg-surface-alt p-3">
+              <div className="rounded-[4px] bg-surface-alt p-3">
                 <p className="text-xs text-muted mb-0.5">Notas</p>
                 {isEditing ? (
                   <textarea
                     value={editData.notas || ''}
                     onChange={(e) => setEditData(prev => ({ ...prev, notas: e.target.value || null }))}
                     rows={3}
-                    className="w-full px-2 py-1 text-sm rounded-lg border border-border bg-surface text-foreground resize-none"
+                    className="w-full px-2 py-1 text-sm rounded-[2px] border border-border bg-surface text-foreground resize-none"
                   />
                 ) : (
                   <p className="text-sm text-foreground">{editData.notas || '—'}</p>

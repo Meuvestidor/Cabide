@@ -11,7 +11,7 @@ import {
   AlertCircle,
   Shirt,
 } from 'lucide-react';
-import { CATEGORIAS } from '@/lib/constants';
+import { CATEGORIAS, FORMALIDADE_LABELS, OCASIOES } from '@/lib/constants';
 import { PieceDetail } from '@/components/PieceDetail';
 import type { Categoria } from '@/types/database';
 
@@ -65,32 +65,39 @@ interface CatalogResult {
   duvidas: string | null;
 }
 
-function PieceCard({ peca, onTap }: { peca: PecaRow; onTap: () => void }) {
+function PieceCard({ peca, looksCount, onTap }: { peca: PecaRow; looksCount: number; onTap: () => void }) {
   return (
-    <button onClick={onTap} className="rounded-2xl bg-surface border border-border overflow-hidden text-left w-full transition-transform active:scale-[0.97]">
-      <div className="aspect-square bg-surface-alt relative">
+    <button onClick={onTap} className="text-left w-full group">
+      <div className="aspect-[3/4] bg-surface-alt relative overflow-hidden rounded-[4px]">
         {peca.imagem_url ? (
-          <img src={peca.imagem_url} alt={peca.nome} className="w-full h-full object-cover" loading="lazy" />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={peca.imagem_url} alt={peca.nome} className="w-full h-full object-cover transition-transform duration-300 group-active:scale-[0.98]" loading="lazy" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center"><Shirt size={32} className="text-muted" /></div>
+          <div className="w-full h-full flex items-center justify-center"><Shirt size={28} strokeWidth={1.25} className="text-muted" /></div>
         )}
         {peca.duvidas && (
-          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-warning/20 flex items-center justify-center">
+          <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-surface/90 flex items-center justify-center" title="Pontos a confirmar">
             <AlertCircle size={14} className="text-warning" />
-          </div>
+          </span>
         )}
-        {peca.hex && <div className="absolute bottom-2 left-2 w-5 h-5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: peca.hex }} />}
         {!peca.disponivel && (
-          <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
-            <span className="text-[10px] font-medium text-foreground bg-surface/90 px-2 py-0.5 rounded-full">Indisponível</span>
-          </div>
+          <span className="absolute bottom-2 left-2 text-[10px] font-semibold tracking-wide uppercase text-foreground bg-surface/90 px-2 py-0.5 rounded-[2px]">Indisponível</span>
         )}
       </div>
-      <div className="p-3">
-        <p className="text-sm font-medium text-foreground truncate">{peca.nome}</p>
-        <p className="text-xs text-muted mt-0.5">{CATEGORIAS[peca.categoria as Categoria] || peca.categoria}</p>
-      </div>
+      <p className="text-[13px] font-medium text-foreground truncate mt-2">{peca.nome}</p>
+      <p className="text-[11px] text-muted mt-0.5">
+        {looksCount} {looksCount === 1 ? 'look' : 'looks'}
+      </p>
     </button>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="py-3 border-b border-border">
+      <p className="eyebrow mb-1">{label}</p>
+      <div className="text-sm text-foreground">{children}</div>
+    </div>
   );
 }
 
@@ -98,34 +105,57 @@ function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving }: {
   data: CatalogResult; imagePreview: string; onConfirm: () => void; onCancel: () => void; saving: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end justify-center">
-      <div className="bg-surface w-full max-w-lg rounded-t-3xl border border-border border-b-0 max-h-[85dvh] overflow-y-auto">
-        <div className="sticky top-0 bg-surface border-b border-border px-4 py-3 flex items-center justify-between rounded-t-3xl">
-          <button onClick={onCancel} className="w-10 h-10 rounded-full hover:bg-surface-alt flex items-center justify-center transition-colors">
+    <div className="fixed inset-0 z-50 bg-foreground/40 flex items-end justify-center">
+      <div className="sheet w-full max-w-lg max-h-[88dvh] overflow-y-auto">
+        <div className="sticky top-0 bg-surface border-b border-border px-4 py-3 flex items-center justify-between">
+          <button onClick={onCancel} className="w-10 h-10 flex items-center justify-center" aria-label="Cancelar">
             <X size={20} className="text-muted" />
           </button>
-          <h2 className="text-base font-semibold text-foreground">Ficha da peça</h2>
-          <button onClick={onConfirm} disabled={saving} className="w-10 h-10 rounded-full bg-primary flex items-center justify-center transition-colors disabled:opacity-50">
-            {saving ? <Loader2 size={18} className="text-white animate-spin" /> : <Check size={18} className="text-white" />}
-          </button>
+          <h2 className="display text-xl">Ficha da peça</h2>
+          <span className="w-10" />
         </div>
-        <div className="px-4 pt-4"><div className="rounded-2xl overflow-hidden aspect-square bg-surface-alt"><img src={imagePreview} alt="Peça" className="w-full h-full object-cover" /></div></div>
-        <div className="px-4 py-4 space-y-3">
-          <div className="rounded-xl bg-surface-alt p-3"><p className="text-xs text-muted mb-1">Nome</p><p className="text-sm font-medium text-foreground">{data.nome}</p></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-surface-alt p-3"><p className="text-xs text-muted mb-1">Categoria</p><p className="text-sm font-medium text-foreground">{CATEGORIAS[data.categoria as Categoria] || data.categoria}</p></div>
-            <div className="rounded-xl bg-surface-alt p-3"><p className="text-xs text-muted mb-1">Subcategoria</p><p className="text-sm font-medium text-foreground">{data.subcategoria}</p></div>
+        <div className="px-4 pt-4">
+          <div className="overflow-hidden aspect-[3/4] max-h-[42dvh] mx-auto bg-surface-alt rounded-[4px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imagePreview} alt="Peça" className="w-full h-full object-cover" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-surface-alt p-3"><p className="text-xs text-muted mb-1">Cor</p><div className="flex items-center gap-2">{data.hex && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: data.hex }} />}<p className="text-sm font-medium text-foreground">{data.cor}</p></div></div>
-            <div className="rounded-xl bg-surface-alt p-3"><p className="text-xs text-muted mb-1">Formalidade</p><p className="text-sm font-medium text-foreground">{data.formalidade}/5</p></div>
+        </div>
+        <div className="px-4 py-2">
+          <Field label="Nome"><span className="display text-lg">{data.nome}</span></Field>
+          <div className="grid grid-cols-2 gap-x-4">
+            <Field label="Categoria">{CATEGORIAS[data.categoria as Categoria] || data.categoria}</Field>
+            <Field label="Tipo">{data.subcategoria}</Field>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4">
+            <Field label="Cor">
+              <span className="inline-flex items-center gap-2">
+                {data.hex && <span className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: data.hex }} />}
+                {data.cor}
+              </span>
+            </Field>
+            <Field label="Formalidade">{FORMALIDADE_LABELS[data.formalidade] || `${data.formalidade}/5`}</Field>
           </div>
           {data.ocasioes?.length > 0 && (
-            <div className="rounded-xl bg-surface-alt p-3"><p className="text-xs text-muted mb-2">Ocasiões</p><div className="flex flex-wrap gap-1.5">{data.ocasioes.map((o, i) => (<span key={i} className="px-2.5 py-1 rounded-full bg-primary/10 text-xs text-primary font-medium">{o}</span>))}</div></div>
+            <Field label="Ocasiões">
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {data.ocasioes.map((o, i) => (
+                  <span key={i} className="chip">{OCASIOES[o as keyof typeof OCASIOES] || o}</span>
+                ))}
+              </div>
+            </Field>
           )}
           {data.duvidas && (
-            <div className="rounded-xl bg-warning/10 border border-warning/20 p-3"><div className="flex items-center gap-2 mb-1"><AlertCircle size={14} className="text-warning" /><p className="text-xs text-warning font-medium">Dúvidas da IA</p></div><p className="text-sm text-foreground">{data.duvidas}</p></div>
+            <div className="mt-4 p-3 border-l-2 border-warning bg-surface-alt">
+              <p className="eyebrow text-warning mb-1">Pontos a confirmar</p>
+              <p className="text-sm text-foreground">{data.duvidas}</p>
+            </div>
           )}
+        </div>
+        <div className="sticky bottom-0 bg-surface border-t border-border p-4 grid grid-cols-2 gap-3">
+          <button onClick={onCancel} className="btn btn-outline">Descartar</button>
+          <button onClick={onConfirm} disabled={saving} className="btn btn-primary">
+            {saving ? <Loader2 size={18} className="animate-spin" /> : <><Check size={18} /> Salvar peça</>}
+          </button>
         </div>
       </div>
     </div>
@@ -144,7 +174,29 @@ export default function ArmarioPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPeca, setSelectedPeca] = useState<PecaRow | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<PecaRow | null>(null);
+  const [looksPorPeca, setLooksPorPeca] = useState<Record<string, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // "N looks" por peça: looks salvos distintos (grupo_id + tipo) que incluem a peça
+  useEffect(() => {
+    async function loadLooksPorPeca() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('looks').select('id, pecas, grupo_id, tipo').eq('user_id', user.id);
+      if (!data) return;
+      const vistos = new Set<string>();
+      const contagem: Record<string, number> = {};
+      for (const look of data as { id: string; pecas: string[] | null; grupo_id: string | null; tipo: string }[]) {
+        const chave = look.grupo_id ? `${look.grupo_id}:${look.tipo}` : look.id;
+        if (vistos.has(chave)) continue;
+        vistos.add(chave);
+        for (const pid of look.pecas || []) contagem[pid] = (contagem[pid] || 0) + 1;
+      }
+      setLooksPorPeca(contagem);
+    }
+    loadLooksPorPeca();
+  }, []);
 
   const loadPecas = useCallback(async () => {
     const supabase = createClient();
@@ -173,9 +225,9 @@ export default function ArmarioPage() {
       try {
         const res = await fetch('/api/catalog', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64: b64, mediaType: file.type || 'image/jpeg' }) });
         const result = await res.json();
-        if (result.error) { setError(result.error); setAnalyzing(false); return; }
+        if (!res.ok || result.error) { setError('Não conseguimos ler bem essa foto. Tente com mais luz ou outro ângulo.'); setAnalyzing(false); return; }
         setCatalogResult(result.data);
-      } catch { setError('Erro ao analisar a peça. Tente novamente.'); }
+      } catch { setError('Parece que a conexão caiu. Verifique sua internet e tente de novo.'); }
       setAnalyzing(false);
     };
     b64Reader.readAsDataURL(file);
@@ -216,7 +268,7 @@ export default function ArmarioPage() {
     const ext = imageFile.name.split('.').pop() || 'jpg';
     const fname = `${user.id}/${Date.now()}.${ext}`;
     const { error: uErr } = await supabase.storage.from('pecas').upload(fname, imageFile, { contentType: imageFile.type || 'image/jpeg' });
-    if (uErr) { setError('Erro ao salvar a foto.'); setSaving(false); return; }
+    if (uErr) { setError('Não conseguimos salvar a foto agora. Tente novamente.'); setSaving(false); return; }
     const { data: { publicUrl } } = supabase.storage.from('pecas').getPublicUrl(fname);
     const { error: iErr } = await supabase.from('pecas').insert({
       user_id: user.id, nome: catalogResult.nome, categoria: catalogResult.categoria,
@@ -230,7 +282,7 @@ export default function ArmarioPage() {
       ficha_ia: JSON.stringify(catalogResult), duvidas: catalogResult.duvidas,
       revisar: !!catalogResult.duvidas,
     });
-    if (iErr) { setError('Erro ao salvar a peça.'); setSaving(false); return; }
+    if (iErr) { setError('Não conseguimos salvar a peça agora. Tente novamente.'); setSaving(false); return; }
     setCatalogResult(null); setImagePreview(''); setImageFile(null); setSaving(false);
     loadPecas();
   }
@@ -238,56 +290,78 @@ export default function ArmarioPage() {
   const contagem = pecas.length;
 
   return (
-    <div className="pt-6 pb-4">
-      <div className="flex items-center justify-between mb-4">
-        <div><h1 className="text-2xl text-foreground">Meu Armário</h1><p className="text-muted text-sm mt-1">{contagem} {contagem === 1 ? 'peça' : 'peças'}</p></div>
-        <button onClick={() => fileInputRef.current?.click()} disabled={analyzing} className="w-11 h-11 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-hover transition-colors disabled:opacity-50 shadow-lg">
-          <Plus size={20} />
+    <div className="pt-8 pb-4">
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="display text-[2.25rem]">Meu armário</h1>
+          <p className="text-[13px] text-muted mt-1">
+            Suas peças, do seu jeito. · {contagem} {contagem === 1 ? 'peça' : 'peças'}
+          </p>
+        </div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={analyzing}
+          aria-label="Adicionar peça"
+          className="w-11 h-11 rounded-[4px] bg-primary text-background flex items-center justify-center hover:bg-primary-hover transition-colors disabled:opacity-50"
+        >
+          <Plus size={20} strokeWidth={1.75} />
         </button>
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide mb-4">
-        <button onClick={() => setFiltroCategoria('todas')} className={`px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filtroCategoria === 'todas' ? 'bg-primary text-white' : 'bg-surface border border-border text-foreground hover:bg-surface-alt'}`}>Todas</button>
+      <div role="tablist" className="flex gap-5 overflow-x-auto -mx-4 px-4 scrollbar-hide mb-6 border-b border-border">
+        <button role="tab" aria-selected={filtroCategoria === 'todas'} onClick={() => setFiltroCategoria('todas')} className="tab">Todas</button>
         {Object.entries(CATEGORIAS).map(([key, label]) => (
-          <button key={key} onClick={() => setFiltroCategoria(key)} className={`px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filtroCategoria === key ? 'bg-primary text-white' : 'bg-surface border border-border text-foreground hover:bg-surface-alt'}`}>{label}</button>
+          <button key={key} role="tab" aria-selected={filtroCategoria === key} onClick={() => setFiltroCategoria(key)} className="tab">{label}</button>
         ))}
       </div>
       {error && (
-        <div className="mb-4 p-3 rounded-xl bg-danger/10 border border-danger/20 flex items-center gap-2">
-          <AlertCircle size={16} className="text-danger flex-shrink-0" />
-          <p className="text-sm text-danger">{error}</p>
-          <button onClick={() => setError(null)} className="ml-auto text-danger"><X size={16} /></button>
+        <div role="alert" className="mb-5 p-3 border-l-2 border-danger bg-surface flex items-start gap-2">
+          <p className="text-sm text-foreground flex-1">{error}</p>
+          <button onClick={() => setError(null)} className="text-muted" aria-label="Fechar"><X size={16} /></button>
         </div>
       )}
       {analyzing && (
-        <div className="mb-4 p-4 rounded-2xl bg-surface border border-border flex flex-col items-center gap-3">
-          {imagePreview && <div className="w-24 h-24 rounded-xl overflow-hidden"><img src={imagePreview} alt="Analisando" className="w-full h-full object-cover" /></div>}
-          <div className="flex items-center gap-2"><Loader2 size={16} className="animate-spin text-primary" /><p className="text-sm text-muted">Analisando sua peça com IA...</p></div>
+        <div className="mb-6 flex items-center gap-4 py-3 border-y border-border">
+          {imagePreview && (
+            <div className="w-14 h-[74px] overflow-hidden rounded-[2px] flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imagePreview} alt="" className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div>
+            <p className="display italic text-lg">Lendo os detalhes da sua peça…</p>
+            <div className="loader-line mt-2" />
+          </div>
         </div>
       )}
       {loading ? (
-        <div className="flex items-center justify-center pt-12"><Loader2 size={24} className="animate-spin text-primary" /></div>
+        <div className="flex justify-center pt-16"><div className="loader-line" /></div>
       ) : pecas.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-border p-12 flex flex-col items-center gap-4 text-center">
-          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center"><Camera size={32} className="text-primary" /></div>
-          <div><p className="text-foreground font-semibold text-lg mb-1">Armário vazio</p><p className="text-muted text-sm max-w-xs">Toque no botão + para fotografar sua primeira peça. A IA vai catalogar automaticamente.</p></div>
+        <div className="pt-10 text-center max-w-xs mx-auto">
+          <Camera size={28} strokeWidth={1.25} className="mx-auto text-gold mb-5" />
+          <h2 className="display text-[1.75rem] mb-2">Seu armário começa aqui</h2>
+          <p className="text-sm text-muted leading-relaxed mb-6">
+            Fotografe sua primeira peça. O Cabidê organiza os detalhes para você.
+          </p>
+          <button onClick={() => fileInputRef.current?.click()} className="btn btn-primary w-full">Adicionar peça</button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {pecas.map((peca) => <PieceCard key={peca.id} peca={peca} onTap={() => setSelectedPeca(peca)} />)}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-6">
+          {pecas.map((peca) => (
+            <PieceCard key={peca.id} peca={peca} looksCount={looksPorPeca[peca.id] || 0} onTap={() => setSelectedPeca(peca)} />
+          ))}
         </div>
       )}
       {catalogResult && imagePreview && <CatalogReview data={catalogResult} imagePreview={imagePreview} onConfirm={handlePreSave} onCancel={() => { setCatalogResult(null); setImagePreview(''); setImageFile(null); setError(null); }} saving={saving} />}
       {duplicateWarning && (
-        <div className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm flex items-center justify-center px-4" onClick={() => setDuplicateWarning(null)}>
-          <div className="bg-surface rounded-2xl border border-border p-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2 mb-3">
-              <AlertCircle size={18} className="text-warning" />
-              <h3 className="text-base font-semibold text-foreground">Peça parecida encontrada</h3>
-            </div>
-            <div className="flex items-center gap-3 bg-surface-alt rounded-xl p-3 mb-3">
+        <div className="fixed inset-0 z-[60] bg-foreground/40 flex items-center justify-center px-4" onClick={() => setDuplicateWarning(null)}>
+          <div className="bg-surface rounded-[4px] p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="eyebrow mb-2">Antes de salvar</p>
+            <h3 className="display text-xl mb-4">Peça parecida encontrada</h3>
+            <div className="flex items-center gap-3 py-3 border-y border-border mb-4">
               {duplicateWarning.imagem_url && (
-                <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0">
+                <div className="w-12 h-16 overflow-hidden rounded-[2px] flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={duplicateWarning.imagem_url} alt={duplicateWarning.nome} className="w-full h-full object-cover" />
                 </div>
               )}
@@ -296,10 +370,10 @@ export default function ArmarioPage() {
                 <p className="text-xs text-muted">{duplicateWarning.cor} · {CATEGORIAS[duplicateWarning.categoria as Categoria] || duplicateWarning.categoria}</p>
               </div>
             </div>
-            <p className="text-sm text-muted mb-4">Já existe uma peça parecida no seu armário. Deseja adicionar mesmo assim?</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDuplicateWarning(null)} className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-surface-alt text-muted">Cancelar</button>
-              <button onClick={handleConfirmSave} className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-primary text-white">Adicionar</button>
+            <p className="text-sm text-muted mb-5">Já existe uma peça parecida no seu armário. Deseja adicionar mesmo assim?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setDuplicateWarning(null)} className="btn btn-outline">Cancelar</button>
+              <button onClick={handleConfirmSave} className="btn btn-primary">Adicionar</button>
             </div>
           </div>
         </div>
