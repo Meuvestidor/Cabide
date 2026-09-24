@@ -11,6 +11,15 @@ import { authErrorMessage } from '@/lib/auth-errors';
 
 const VIDEO_URL = 'https://bhutjllmjqjitlwpqwjf.supabase.co/storage/v1/object/public/video%20Cabide/cabide.mp4';
 
+// Layout dividido só em desktop horizontal (>= 1024px e landscape).
+// A mídia do vídeo é o complemento exato: móvel e tablet vertical.
+const VIDEO_MEDIA = '(max-width: 1023.98px), (orientation: portrait)';
+
+// PLACEHOLDER — fotografia editorial do vestidor (zona esquerda no desktop).
+// Quando a foto estiver pronta, defina aqui o caminho (ex.: '/login-vestidor.jpg').
+// Enquanto for null, a zona mostra um painel neutro no lugar da foto.
+const LOGIN_EDITORIAL_PHOTO: string | null = null;
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,31 +68,48 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-dvh flex flex-col overflow-hidden bg-primary">
-      {/* Fotografia/vídeo do armário em tela cheia */}
+    <div className="relative min-h-dvh flex flex-col lg:landscape:flex-row overflow-hidden bg-primary">
+      {/* Móvel e tablet vertical: vídeo do armário em tela cheia (não carrega no desktop) */}
       <video
         autoPlay
         muted
         loop
         playsInline
         aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-cover lg:landscape:hidden"
         style={{ objectPosition: 'center top' }}
       >
-        <source src={VIDEO_URL} type="video/mp4" />
+        <source src={VIDEO_URL} type="video/mp4" media={VIDEO_MEDIA} />
       </video>
 
-      {/* Overlay escuro para legibilidade */}
+      {/* Overlay escuro para legibilidade (somente sobre o vídeo) */}
       <div
         aria-hidden="true"
-        className="absolute inset-0"
+        className="absolute inset-0 lg:landscape:hidden"
         style={{
           background:
             'linear-gradient(180deg, rgba(26,26,26,0.35) 0%, rgba(26,26,26,0.25) 35%, rgba(26,26,26,0.72) 70%, rgba(26,26,26,0.88) 100%)',
         }}
       />
 
-      <div className="relative z-10 flex-1 flex flex-col px-6 pt-16 pb-8 max-w-md w-full mx-auto">
+      {/* Desktop: zona esquerda (~34% da largura) com a fotografia editorial */}
+      <aside
+        aria-hidden="true"
+        data-placeholder={LOGIN_EDITORIAL_PHOTO ? undefined : 'login-editorial-photo'}
+        className="hidden lg:landscape:block relative w-[34vw] shrink-0 self-stretch overflow-hidden bg-sand"
+      >
+        {LOGIN_EDITORIAL_PHOTO ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={LOGIN_EDITORIAL_PHOTO} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <CabideMark size={40} color="#C6A15B" />
+          </div>
+        )}
+      </aside>
+
+      {/* Conteúdo do login — no desktop ocupa a zona direita, sobre Deep Green */}
+      <div className="relative z-10 flex-1 flex flex-col px-6 pt-16 pb-8 max-w-md w-full mx-auto lg:landscape:justify-center lg:landscape:py-12">
         {/* Marca */}
         <div className="flex flex-col items-center text-center">
           <div className="flex items-center gap-2">
@@ -93,7 +119,7 @@ export default function LoginPage() {
           <p className="eyebrow mt-3 text-background/80">Seu estilo. Mais você.</p>
         </div>
 
-        <div className="flex-1" />
+        <div className="flex-1 lg:landscape:flex-none lg:landscape:h-14" />
 
         {/* Formulário sobre a imagem */}
         <h2 className="display text-[1.75rem] text-background mb-5">Acesse seu armário</h2>
