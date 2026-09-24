@@ -130,3 +130,47 @@ Retorne SOMENTE um JSON válido:
   ]
 }`;
 }
+
+// ============================================
+// RETRATO CABIDÊ — texto editorial "Seu retrato de estilo"
+// Recebe SOMENTE atributos estruturados já rotulados (sem tamanhos).
+// ============================================
+export function buildStylePortraitPrompt(atributos: {
+  estilo_atual: string[];
+  estilo_desejado: string[];
+  intencao_imagem: string | null;
+  estado_desejado: string[];
+  contextos: string[];
+  conforto: number | null;
+  ousadia: number | null;
+  paletas: string[];
+  dor_principal: string | null;
+}): string {
+  const linhas: string[] = [];
+  if (atributos.estilo_atual.length) linhas.push(`- Estilo hoje (como se veste): ${atributos.estilo_atual.join(', ')}`);
+  if (atributos.estilo_desejado.length) linhas.push(`- Como quer se vestir (direção desejada): ${atributos.estilo_desejado.join(', ')}`);
+  if (atributos.intencao_imagem) linhas.push(`- O que quer transmitir aos outros: ${atributos.intencao_imagem}`);
+  if (atributos.estado_desejado.length) linhas.push(`- Como quer se sentir ao se vestir: ${atributos.estado_desejado.join(', ')}`);
+  if (atributos.contextos.length) linhas.push(`- Rotina: ${atributos.contextos.join(', ')}`);
+  if (atributos.conforto) linhas.push(`- Importância do conforto: ${atributos.conforto} de 5`);
+  if (atributos.ousadia) linhas.push(`- Gosto por experimentar: ${atributos.ousadia} de 5`);
+  if (atributos.paletas.length) linhas.push(`- Famílias de cores preferidas: ${atributos.paletas.join(', ')}`);
+  if (atributos.dor_principal) linhas.push(`- Ao abrir o armário: ${atributos.dor_principal}`);
+
+  return `Você escreve para o Cabidê, uma marca de moda e estilo pessoal. Escreva o texto "Seu retrato de estilo" para esta usuária.
+
+ATRIBUTOS (use somente estes; não invente nada além deles):
+${linhas.join('\n')}
+
+REGRAS:
+- Entre 60 e 90 palavras, em português do Brasil, em segunda pessoa ("você").
+- Tom editorial de revista de moda: caloroso, elegante, humano, sem exageros nem clichês.
+- Um único parágrafo corrido, sem título, sem listas, sem aspas, sem emojis.
+- Diferencie claramente o que ela quer transmitir aos outros e como ela quer se sentir; não misture os dois.
+- Diferencie o estilo de hoje da direção desejada.
+- Não mencione tamanho, medidas, corpo, formato de corpo, peso ou aparência física.
+- Não mencione tecnologia, inteligência artificial, algoritmos ou o próprio texto.
+- Não cite números de escalas; traduza-os em linguagem natural.
+
+Responda apenas com o parágrafo.`;
+}
