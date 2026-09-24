@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { MODEL_STYLING } from '@/lib/models';
 import { buildLooksPrompt } from '@/lib/prompts';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { ESTILO_LABEL_PECA, perfilAtivo } from '@/lib/retrato';
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
     });
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL_STYLING,
       max_tokens: 2048,
       messages: [
         {
@@ -167,8 +168,10 @@ export async function POST(req: NextRequest) {
       ],
     });
 
-    const responseText =
-      message.content[0].type === 'text' ? message.content[0].text : '';
+    // Junta todos os blocos de texto (robusto a respostas com mais de um bloco)
+    const responseText = message.content
+      .map((b) => (b.type === 'text' ? b.text : ''))
+      .join('\n');
 
     // Parse JSON — try code fence first, then raw
     let jsonStr: string | null = null;

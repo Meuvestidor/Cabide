@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { MODEL_STYLING } from '@/lib/models';
 import { buildStylePortraitPrompt } from '@/lib/prompts';
 import { createServerSupabase } from '@/lib/supabase-server';
 import {
@@ -16,11 +17,6 @@ import type { RespostasRetrato } from '@/types/database';
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
-
-// Mesmo modelo já usado em /api/looks. Esta entrega não altera IDs de modelo
-// (ver relatório: o ID atual consta como aposentado na documentação oficial).
-// Se a chamada falhar, o cliente usa o retrato determinístico de lib/retrato.
-const MODEL = 'claude-sonnet-4-20250514';
 
 // Nunca devolver texto que fale de corpo, tamanho ou IA.
 const PROIBIDO = /\b(IA|I\.A\.)\b|intelig[êe]ncia artificial|algoritmo|tamanho|medida|corpo|peso/i;
@@ -53,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     const message = await anthropic.messages.create(
       {
-        model: MODEL,
+        model: MODEL_STYLING,
         max_tokens: 400,
         messages: [{ role: 'user', content: prompt }],
       },
