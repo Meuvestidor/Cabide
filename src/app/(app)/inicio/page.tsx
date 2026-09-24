@@ -23,6 +23,8 @@ import {
 import { OCASIOES } from '@/lib/constants';
 import { createClient } from '@/lib/supabase-client';
 import { ocasioesDoPerfil, perfilAtivo } from '@/lib/retrato';
+import { aplicarFiltrosDuros, type PecaEntrada } from '@/lib/perfil-looks';
+import { atributosDaFicha } from '@/lib/ficha-ia';
 
 type WeatherData = {
   temp: number;
@@ -135,33 +137,43 @@ export default function InicioPage() {
         return;
       }
 
-      // Foto editorial: a peça mais recente do armário
-      const { data: recente } = await supabase
+      // Foto editorial: a peça mais recente do armário que respeita os limites do Retrato
+      const { data: recentes } = await supabase
         .from('pecas')
-        .select('imagem_url')
+        .select('id, nome, imagem_url, categoria, subcategoria, cor, comprimento, material, como_me_queda, ficha_ia')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(1);
-      if (recente?.[0]?.imagem_url) setSugestaoFoto(recente[0].imagem_url);
+        .limit(10);
+      const recenteOk = aplicarFiltrosDuros(
+        ((recentes ?? []).map((p) => ({ ...p, atributos: atributosDaFicha(p.ficha_ia) })) as (PecaEntrada & { imagem_url: string | null })[]),
+        perfilAtivo(profile?.perfil_estilo)
+      ).aptas.find((p) => (p as PecaEntrada & { imagem_url: string | null }).imagem_url) as
+        | (PecaEntrada & { imagem_url: string | null })
+        | undefined;
+      if (recenteOk?.imagem_url) setSugestaoFoto(recenteOk.imagem_url);
 
       if (totalPecas < 5) {
         setSugestao(`Você tem ${totalPecas} peças. Com 10 ou mais, seus looks ficam muito mais variados.`);
       } else if (totalLooks === 0) {
         setSugestao('Seu armário está pronto. Que tal criar seus primeiros looks?');
       } else {
-        // Check for forgotten pieces
+        // Check for forgotten pieces — respeitando os limites do Retrato confirmado
         const { data: forgotten } = await supabase
           .from('pecas')
-          .select('nome, imagem_url')
+          .select('id, nome, imagem_url, categoria, subcategoria, cor, comprimento, material, como_me_queda, ficha_ia')
           .eq('user_id', user.id)
           .eq('disponivel', true)
           .lt('vezes_usada', 2)
           .order('vezes_usada')
-          .limit(1);
+          .limit(10);
 
-        if (forgotten && forgotten.length > 0) {
-          setSugestao(`Que tal dar vida nova a “${forgotten[0].nome}”?`);
-          if (forgotten[0].imagem_url) setSugestaoFoto(forgotten[0].imagem_url);
+        const candidatas = (forgotten ?? []).map((p) => ({ ...p, atributos: atributosDaFicha(p.ficha_ia) })) as (PecaEntrada & { imagem_url: string | null })[];
+        const escolhida = aplicarFiltrosDuros(candidatas, perfilAtivo(profile?.perfil_estilo)).aptas[0] as
+          | (PecaEntrada & { imagem_url: string | null })
+          | undefined;
+        if (escolhida) {
+          setSugestao(`Que tal dar vida nova a “${escolhida.nome}”?`);
+          if (escolhida.imagem_url) setSugestaoFoto(escolhida.imagem_url);
         }
       }
     }

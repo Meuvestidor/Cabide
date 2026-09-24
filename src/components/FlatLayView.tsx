@@ -127,7 +127,10 @@ export function FlatLayView({
         ) : (
           <>
             <div style={{ gridRow: '1', gridColumn: '1' }}>
-              {slots.outer ? (
+              {slots.outer && !slots.top ? (
+                // Casaco sem parte de cima: ocupa a célula normalmente (antes flutuava sobre o título)
+                <PieceCell peca={slots.outer} />
+              ) : slots.outer ? (
                 <div className="relative">
                   <PieceCell peca={slots.top} />
                   <div className="absolute -bottom-2 -right-2 w-2/3 opacity-90">
