@@ -1,542 +1,279 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase-client';
-import { Loader2, Send, RefreshCw, Sparkles, Briefcase, Palette, Ban, Ruler } from 'lucide-react';
-import type { PerfilEstilo } from '@/types/database';
+import type { PerfilEstilo, RetratoStatus } from '@/types/database';
+import {
+  CAIMENTO_BAIXO,
+  CAIMENTO_CIMA,
+  COMPRIMENTOS,
+  CORES_VETO,
+  DORES,
+  DRESS_CODES,
+  ESTAMPAS,
+  ESTILOS,
+  INTENCOES,
+  PALETAS,
+  SENTIMENTOS,
+  VETOS,
+  contextoLabel,
+  getRetratoStatus,
+  isPerfilEstiloV2,
+  labelOf,
+} from '@/lib/retrato';
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
+type PecaAncora = { id: string; nome: string; imagem_url: string };
+
+function Secao({ numero, titulo, children }: { numero: string; titulo: string; children: React.ReactNode }) {
+  return (
+    <section className="py-5 border-t border-border">
+      <div className="flex items-baseline gap-3 mb-3">
+        <span className="display text-sm text-gold-text">{numero}</span>
+        <h2 className="eyebrow text-foreground">{titulo}</h2>
+      </div>
+      <div className="pl-7 text-sm text-foreground">{children}</div>
+    </section>
+  );
 }
 
-// ============================================
-// PROFILE SUMMARY VIEW (when interview is done)
-// ============================================
-function ProfileSummary({
-  perfil,
-  onRefazer,
-}: {
-  perfil: PerfilEstilo;
-  onRefazer: () => void;
-}) {
+function Chips({ itens }: { itens: string[] }) {
+  if (!itens.length) return <NaoRespondido />;
   return (
-    <div className="pt-6 pb-4">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl text-foreground">Meu Estilo</h1>
-          <p className="text-muted text-sm mt-1">Seu perfil personalizado</p>
-        </div>
-        <button
-          onClick={onRefazer}
-          className="flex items-center gap-1.5 text-sm text-primary font-medium hover:underline"
-        >
-          <RefreshCw size={14} />
-          Refazer
-        </button>
-      </div>
-
-      {/* Vida profissional */}
-      <section className="rounded-2xl bg-surface border border-border p-4 mb-3">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Briefcase size={16} className="text-primary" />
-          </div>
-          <h2 className="text-base font-semibold text-foreground" style={{ fontFamily: 'var(--font-sans)' }}>
-            Vida profissional
-          </h2>
-        </div>
-        <div className="space-y-2 text-sm">
-          {perfil.vida_profissional.profissao && (
-            <p className="text-foreground">
-              <span className="text-muted">Profissão:</span>{' '}
-              {perfil.vida_profissional.profissao}
-            </p>
-          )}
-          {perfil.vida_profissional.rotina && (
-            <p className="text-foreground">
-              <span className="text-muted">Rotina:</span>{' '}
-              {perfil.vida_profissional.rotina}
-            </p>
-          )}
-          {perfil.vida_profissional.compromissos?.length > 0 && (
-            <div>
-              <span className="text-muted">Compromissos:</span>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {perfil.vida_profissional.compromissos.map((c, i) => (
-                  <span
-                    key={i}
-                    className="px-2.5 py-1 rounded-full bg-surface-alt text-xs text-foreground"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Estilo */}
-      <section className="rounded-2xl bg-surface border border-border p-4 mb-3">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Palette size={16} className="text-primary" />
-          </div>
-          <h2 className="text-base font-semibold text-foreground" style={{ fontFamily: 'var(--font-sans)' }}>
-            Estilo
-          </h2>
-        </div>
-        <div className="space-y-2 text-sm">
-          {perfil.estilo.pecas_basicas?.length > 0 && (
-            <div>
-              <span className="text-muted">Peças favoritas:</span>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {perfil.estilo.pecas_basicas.map((p, i) => (
-                  <span
-                    key={i}
-                    className="px-2.5 py-1 rounded-full bg-primary/10 text-xs text-primary font-medium"
-                  >
-                    {p}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {perfil.estilo.cores_preferidas?.length > 0 && (
-            <div>
-              <span className="text-muted">Cores preferidas:</span>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {perfil.estilo.cores_preferidas.map((c, i) => (
-                  <span
-                    key={i}
-                    className="px-2.5 py-1 rounded-full bg-surface-alt text-xs text-foreground"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {perfil.estilo.cores_evita?.length > 0 && (
-            <div>
-              <span className="text-muted">Cores que evita:</span>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {perfil.estilo.cores_evita.map((c, i) => (
-                  <span
-                    key={i}
-                    className="px-2.5 py-1 rounded-full bg-danger/10 text-xs text-danger"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {perfil.estilo.como_quer_ser_percebida && (
-            <p className="text-foreground">
-              <span className="text-muted">Quer ser percebida como:</span>{' '}
-              {perfil.estilo.como_quer_ser_percebida}
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* Limites */}
-      <section className="rounded-2xl bg-surface border border-border p-4 mb-3">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Ban size={16} className="text-primary" />
-          </div>
-          <h2 className="text-base font-semibold text-foreground" style={{ fontFamily: 'var(--font-sans)' }}>
-            Limites
-          </h2>
-        </div>
-        <div className="space-y-2 text-sm">
-          {perfil.limites.pecas_nunca_usa?.length > 0 && (
-            <div>
-              <span className="text-muted">Nunca usa:</span>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {perfil.limites.pecas_nunca_usa.map((p, i) => (
-                  <span
-                    key={i}
-                    className="px-2.5 py-1 rounded-full bg-danger/10 text-xs text-danger"
-                  >
-                    {p}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Tamanhos */}
-      <section className="rounded-2xl bg-surface border border-border p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Ruler size={16} className="text-primary" />
-          </div>
-          <h2 className="text-base font-semibold text-foreground" style={{ fontFamily: 'var(--font-sans)' }}>
-            Tamanhos
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          {perfil.limites.tamanho_roupa && (
-            <div className="rounded-xl bg-surface-alt p-3 text-center">
-              <p className="text-muted text-xs mb-1">Roupa</p>
-              <p className="text-foreground font-semibold">
-                {perfil.limites.tamanho_roupa}
-              </p>
-            </div>
-          )}
-          {perfil.limites.tamanho_calcado && (
-            <div className="rounded-xl bg-surface-alt p-3 text-center">
-              <p className="text-muted text-xs mb-1">Calçado</p>
-              <p className="text-foreground font-semibold">
-                {perfil.limites.tamanho_calcado}
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
+    <div className="flex flex-wrap gap-1.5">
+      {itens.map((i) => (
+        <span key={i} className="chip">{i}</span>
+      ))}
     </div>
   );
 }
 
-// ============================================
-// CHAT BUBBLE
-// ============================================
-function ChatBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === 'user';
+function NaoRespondido() {
+  return <p className="text-[13px] text-muted italic">Não respondido</p>;
+}
+
+function Escala({ valor, rotulo }: { valor?: number; rotulo: string }) {
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
-      {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-          <Sparkles size={14} className="text-primary" />
+    <div className="flex items-center justify-between py-1">
+      <span className="text-[13px]">{rotulo}</span>
+      {valor ? (
+        <span className="flex gap-1" aria-label={`${valor} de 5`}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <span key={n} className={`w-2 h-2 rounded-full ${n <= valor ? 'bg-primary' : 'bg-border'}`} />
+          ))}
+        </span>
+      ) : (
+        <span className="text-[13px] text-muted italic">—</span>
+      )}
+    </div>
+  );
+}
+
+function PerfilConfirmado({ perfil, ancora }: { perfil: PerfilEstilo; ancora: PecaAncora | null }) {
+  const r = perfil.respostas;
+  const dress = r.dress_code ? labelOf(DRESS_CODES, r.dress_code) : '';
+  const cores = [
+    ...(r.cores_veto ?? []).map((c) => CORES_VETO.find((x) => x.value === c)?.label ?? c),
+    ...(r.cores_veto_outra ? [r.cores_veto_outra] : []),
+  ];
+  const vetos = [
+    ...(r.vetos ?? []).map((v) => labelOf(VETOS, v)),
+    ...(r.vetos_outra ? [r.vetos_outra] : []),
+  ];
+
+  return (
+    <div className="pt-8 pb-6">
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h1 className="display text-[2.25rem]">Meu estilo</h1>
+        <Link href="/retrato?editar=1" className="text-sm font-semibold underline underline-offset-4 decoration-gold mt-3">
+          Editar meu perfil
+        </Link>
+      </div>
+      <p className="text-[13px] text-muted mb-8">Seu estilo evolui com você.</p>
+
+      {perfil.retrato && (
+        <div className="mb-8">
+          <p className="eyebrow mb-3">Seu retrato de estilo</p>
+          <p className="display text-[1.35rem] leading-relaxed">{perfil.retrato}</p>
+          <div className="rule-gold mt-6" />
         </div>
       )}
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-          isUser
-            ? 'bg-primary text-white rounded-br-md'
-            : 'bg-surface border border-border text-foreground rounded-bl-md'
-        }`}
-      >
-        {message.content}
+
+      <Secao numero="01" titulo="Minha vida real">
+        <Chips itens={[...(r.contextos ?? []).filter((c) => c !== 'outro').map(contextoLabel), ...(r.contextos_outro ? [r.contextos_outro] : [])]} />
+        {dress && <p className="text-[13px] text-muted mt-2">Dress code: {dress}</p>}
+      </Secao>
+
+      <Secao numero="02" titulo="Meu estilo hoje">
+        <Chips itens={(r.estilo_atual ?? []).map((e) => labelOf(ESTILOS, e))} />
+      </Secao>
+
+      <Secao numero="03" titulo="Como quero me vestir">
+        <Chips itens={(r.estilo_desejado ?? []).map((e) => labelOf(ESTILOS, e))} />
+      </Secao>
+
+      <Secao numero="04" titulo="O que quero transmitir">
+        {r.intencao_imagem ? <p className="display text-lg">{labelOf(INTENCOES, r.intencao_imagem)}</p> : <NaoRespondido />}
+      </Secao>
+
+      <Secao numero="05" titulo="Conforto e ousadia">
+        <Escala rotulo="Conforto" valor={r.conforto} />
+        <Escala rotulo="Quanto gosto de experimentar" valor={r.ousadia} />
+      </Secao>
+
+      <Secao numero="06" titulo="Como gosto que a roupa caia">
+        {r.silhueta?.cima || r.silhueta?.baixo || r.silhueta?.comprimentos?.length ? (
+          <div className="space-y-1 text-[13px]">
+            {r.silhueta?.cima && <p>Parte de cima: {labelOf(CAIMENTO_CIMA, r.silhueta.cima)}</p>}
+            {r.silhueta?.baixo && <p>Parte de baixo: {labelOf(CAIMENTO_BAIXO, r.silhueta.baixo)}</p>}
+            {!!r.silhueta?.comprimentos?.length && (
+              <p>Comprimentos: {r.silhueta.comprimentos.map((c) => labelOf(COMPRIMENTOS, c)).join(', ')}</p>
+            )}
+          </div>
+        ) : (
+          <NaoRespondido />
+        )}
+        {(perfil.medidas?.tamanho_roupa || perfil.medidas?.tamanho_calcado) && (
+          <p className="text-[13px] text-muted mt-2">
+            {perfil.medidas?.tamanho_roupa && `Roupa ${perfil.medidas.tamanho_roupa}`}
+            {perfil.medidas?.tamanho_roupa && perfil.medidas?.tamanho_calcado && ' · '}
+            {perfil.medidas?.tamanho_calcado && `Calçado ${perfil.medidas.tamanho_calcado}`}
+          </p>
+        )}
+      </Secao>
+
+      <Secao numero="07" titulo="Cores e estampas">
+        {r.paletas?.length || r.estampas || cores.length ? (
+          <div className="space-y-2">
+            {!!r.paletas?.length && <Chips itens={r.paletas.map((p) => labelOf(PALETAS, p))} />}
+            {r.estampas && <p className="text-[13px]">Estampas: {labelOf(ESTAMPAS, r.estampas)}</p>}
+            {cores.length > 0 && <p className="text-[13px] text-muted">Evita: {cores.join(', ')}</p>}
+          </div>
+        ) : (
+          <NaoRespondido />
+        )}
+      </Secao>
+
+      <Secao numero="08" titulo="O que não funciona para mim">
+        {vetos.length || r.dor_principal ? (
+          <div className="space-y-2">
+            {vetos.length > 0 && <Chips itens={vetos} />}
+            {r.dor_principal && <p className="text-[13px] text-muted">{labelOf(DORES, r.dor_principal)}</p>}
+          </div>
+        ) : (
+          <NaoRespondido />
+        )}
+      </Secao>
+
+      <Secao numero="09" titulo="Como quero me sentir">
+        <Chips itens={(r.estado_desejado ?? []).map((s) => labelOf(SENTIMENTOS, s))} />
+      </Secao>
+
+      {ancora && (
+        <Secao numero="—" titulo="A peça mais eu">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-[84px] overflow-hidden rounded-[2px] bg-surface-alt flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={ancora.imagem_url} alt={ancora.nome} className="w-full h-full object-cover" />
+            </div>
+            <p className="display text-lg">{ancora.nome}</p>
+          </div>
+        </Secao>
+      )}
+
+      <div className="border-t border-border pt-6">
+        <Link href="/retrato?editar=1" className="btn btn-outline w-full">
+          Editar meu perfil
+        </Link>
       </div>
     </div>
   );
 }
 
-// ============================================
-// TYPING INDICATOR
-// ============================================
-function TypingIndicator() {
+function Convite({ status }: { status: RetratoStatus }) {
+  if (status === 'completed') {
+    return (
+      <div className="pt-8">
+        <h1 className="display text-[2.25rem] mb-8">Meu estilo</h1>
+        <p className="eyebrow mb-3">Retrato Cabidê</p>
+        <h2 className="display text-[1.75rem] mb-3">Seu retrato está pronto para revisão.</h2>
+        <p className="text-sm text-muted leading-relaxed mb-8">
+          Confirme seu perfil para que seus looks passem a partir de quem você é.
+        </p>
+        <Link href="/retrato" className="btn btn-primary w-full">
+          Revisar e confirmar
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex justify-start mb-3">
-      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2 flex-shrink-0">
-        <Sparkles size={14} className="text-primary" />
-      </div>
-      <div className="bg-surface border border-border rounded-2xl rounded-bl-md px-4 py-3">
-        <div className="flex gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-muted animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-2 h-2 rounded-full bg-muted animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-2 h-2 rounded-full bg-muted animate-bounce" style={{ animationDelay: '300ms' }} />
-        </div>
-      </div>
+    <div className="pt-8">
+      <h1 className="display text-[2.25rem] mb-8">Meu estilo</h1>
+      <p className="eyebrow mb-3">Retrato Cabidê</p>
+      <h2 className="display text-[1.75rem] mb-3">Queremos conhecer você.</h2>
+      <p className="text-sm text-muted leading-relaxed mb-3">
+        Conte ao Cabidê como é a sua rotina, o que você gosta e como quer se sentir ao se vestir. Quanto mais
+        conhecemos você, mais personalizados serão seus looks.
+      </p>
+      <p className="text-[13px] text-muted mb-8">Leva cerca de 3 minutos.</p>
+      <Link href="/retrato?iniciar=1" className="btn btn-primary w-full">
+        Criar meu perfil de estilo
+      </Link>
     </div>
   );
 }
 
-// ============================================
-// MAIN PAGE
-// ============================================
 export default function EstiloPage() {
   const [loading, setLoading] = useState(true);
-  const [existingProfile, setExistingProfile] = useState<PerfilEstilo | null>(null);
-  const [showChat, setShowChat] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [sending, setSending] = useState(false);
-  const [userName, setUserName] = useState('');
-  const [interviewComplete, setInterviewComplete] = useState(false);
-  const [pendingProfile, setPendingProfile] = useState<PerfilEstilo | null>(null);
-  const [saving, setSaving] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [perfil, setPerfil] = useState<PerfilEstilo | null>(null);
+  const [status, setStatus] = useState<RetratoStatus>('nao_iniciado');
+  const [ancora, setAncora] = useState<PecaAncora | null>(null);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, sending]);
-
-  // Load existing profile
-  useEffect(() => {
-    async function loadProfile() {
+    async function load() {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setLoading(false);
         return;
       }
-
-      setUserName(user.user_metadata?.nome || '');
-
       const { data: profile } = await supabase
         .from('profiles')
-        .select('perfil_estilo, onboarding_completo')
+        .select('perfil_estilo')
         .eq('id', user.id)
         .single();
 
-      if (profile?.perfil_estilo) {
-        setExistingProfile(profile.perfil_estilo as PerfilEstilo);
+      const pe = profile?.perfil_estilo;
+      setStatus(getRetratoStatus(pe));
+      if (isPerfilEstiloV2(pe)) {
+        setPerfil(pe);
+        const ancoraId = pe.respostas.pecas_ancora?.[0];
+        if (ancoraId) {
+          const { data: peca } = await supabase
+            .from('pecas')
+            .select('id, nome, imagem_url')
+            .eq('id', ancoraId)
+            .maybeSingle();
+          if (peca) setAncora(peca as PecaAncora);
+        }
       }
-
       setLoading(false);
     }
-
-    loadProfile();
+    load();
   }, []);
 
-  // Start interview
-  async function startInterview() {
-    setShowChat(true);
-    setMessages([]);
-    setInterviewComplete(false);
-    setPendingProfile(null);
-    setSending(true);
-
-    try {
-      const res = await fetch('/api/style-interview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Olá, meu nome é ${userName || 'eu'}. Quero descobrir meu perfil de estilo!` }],
-          userName,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.message) {
-        setMessages([
-          { role: 'user', content: `Olá, meu nome é ${userName || 'eu'}. Quero descobrir meu perfil de estilo!` },
-          { role: 'assistant', content: data.message },
-        ]);
-      }
-    } catch {
-      setMessages([
-        {
-          role: 'assistant',
-          content: 'Desculpe, houve um erro ao iniciar a entrevista. Tente novamente.',
-        },
-      ]);
-    }
-
-    setSending(false);
-  }
-
-  // Send message
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || sending) return;
-
-    const userMessage = input.trim();
-    setInput('');
-
-    const newMessages: ChatMessage[] = [
-      ...messages,
-      { role: 'user', content: userMessage },
-    ];
-    setMessages(newMessages);
-    setSending(true);
-
-    try {
-      const res = await fetch('/api/style-interview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, userName }),
-      });
-
-      const data = await res.json();
-
-      if (data.message) {
-        setMessages([
-          ...newMessages,
-          { role: 'assistant', content: data.message },
-        ]);
-      }
-
-      if (data.isComplete && data.perfilEstilo) {
-        setInterviewComplete(true);
-        setPendingProfile(data.perfilEstilo);
-      }
-    } catch {
-      setMessages([
-        ...newMessages,
-        {
-          role: 'assistant',
-          content: 'Desculpe, houve um erro. Tente enviar sua resposta novamente.',
-        },
-      ]);
-    }
-
-    setSending(false);
-  }
-
-  // Save profile
-  async function handleSaveProfile() {
-    if (!pendingProfile) return;
-    setSaving(true);
-
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setSaving(false);
-      return;
-    }
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        perfil_estilo: pendingProfile,
-        onboarding_completo: true,
-      })
-      .eq('id', user.id);
-
-    if (!error) {
-      setExistingProfile(pendingProfile);
-      setShowChat(false);
-      setPendingProfile(null);
-      setInterviewComplete(false);
-      setMessages([]);
-    }
-
-    setSaving(false);
-  }
-
-  // Loading
   if (loading) {
     return (
-      <div className="flex items-center justify-center pt-20">
-        <Loader2 size={24} className="animate-spin text-primary" />
+      <div className="flex justify-center pt-24">
+        <div className="loader-line" />
       </div>
     );
   }
 
-  // Show existing profile
-  if (existingProfile && !showChat) {
-    return (
-      <ProfileSummary
-        perfil={existingProfile}
-        onRefazer={startInterview}
-      />
-    );
+  if (status === 'confirmed' && perfil) {
+    return <PerfilConfirmado perfil={perfil} ancora={ancora} />;
   }
 
-  // Show chat interview
-  if (showChat) {
-    return (
-      <div className="flex flex-col h-[calc(100dvh-5rem)]">
-        {/* Header */}
-        <div className="pt-6 pb-3 flex-shrink-0">
-          <h1 className="text-2xl text-foreground">Entrevista de Estilo</h1>
-          <p className="text-muted text-sm mt-1">
-            Converse com sua estilista pessoal
-          </p>
-        </div>
-
-        {/* Chat area */}
-        <div className="flex-1 overflow-y-auto py-3 -mx-4 px-4">
-          {messages.map((msg, i) => (
-            <ChatBubble key={i} message={msg} />
-          ))}
-          {sending && <TypingIndicator />}
-
-          {/* Interview complete — confirm button */}
-          {interviewComplete && pendingProfile && (
-            <div className="mt-4 p-4 rounded-2xl bg-success/10 border border-success/20">
-              <p className="text-sm text-foreground font-medium mb-3">
-                Seu perfil de estilo está pronto!
-              </p>
-              <button
-                onClick={handleSaveProfile}
-                disabled={saving}
-                className="w-full py-3 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {saving ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Sparkles size={16} />
-                )}
-                {saving ? 'Salvando...' : 'Confirmar meu perfil'}
-              </button>
-            </div>
-          )}
-
-          <div ref={chatEndRef} />
-        </div>
-
-        {/* Input area */}
-        {!interviewComplete && (
-          <form
-            onSubmit={handleSend}
-            className="flex-shrink-0 py-3 flex gap-2"
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Digite sua resposta..."
-              disabled={sending}
-              className="flex-1 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || sending}
-              className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center hover:bg-primary-hover transition-colors disabled:opacity-30"
-            >
-              <Send size={18} />
-            </button>
-          </form>
-        )}
-      </div>
-    );
-  }
-
-  // Welcome / start interview
-  return (
-    <div className="pt-8">
-      <h1 className="text-2xl text-foreground mb-2">Meu Perfil de Estilo</h1>
-      <p className="text-muted text-sm mb-6">
-        Complete sua entrevista de estilo para looks mais personalizados.
-      </p>
-      <div className="rounded-2xl bg-surface border border-border p-8 flex flex-col items-center gap-4 text-center">
-        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-          <Sparkles size={32} className="text-primary" />
-        </div>
-        <div>
-          <p className="text-foreground font-semibold text-lg mb-1">
-            Descubra seu estilo
-          </p>
-          <p className="text-muted text-sm max-w-xs">
-            Uma conversa rápida com sua estilista pessoal para entender suas
-            preferências e criar looks perfeitos para você.
-          </p>
-        </div>
-        <button
-          onClick={startInterview}
-          className="mt-2 py-3 px-8 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary-hover transition-colors flex items-center gap-2"
-        >
-          <Sparkles size={16} />
-          Iniciar entrevista
-        </button>
-      </div>
-    </div>
-  );
+  return <Convite status={status} />;
 }
