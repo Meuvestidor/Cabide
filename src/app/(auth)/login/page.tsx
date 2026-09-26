@@ -16,10 +16,9 @@ const VIDEO_URL = 'https://bhutjllmjqjitlwpqwjf.supabase.co/storage/v1/object/pu
 // então o vídeo não é baixado no desktop.
 const VIDEO_MEDIA = '(max-width: 1023.98px), (orientation: portrait)';
 
-// PLACEHOLDER — fotografia editorial do vestidor (fundo de tela cheia no desktop).
-// Quando a foto estiver pronta, defina aqui o caminho (ex.: '/login-vestidor.jpg').
-// Enquanto for null, o fundo usa um tom neutro no lugar da foto.
-const LOGIN_EDITORIAL_PHOTO: string | null = null;
+// Fotografia editorial do vestidor (fundo de tela cheia no desktop).
+// Se for null, o fundo usa um tom neutro (Sand) no lugar da foto.
+const LOGIN_EDITORIAL_PHOTO: string | null = '/login-vestidor.webp';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
