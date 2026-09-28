@@ -25,6 +25,7 @@ import { createClient } from '@/lib/supabase-client';
 import { ocasioesDoPerfil, perfilAtivo } from '@/lib/retrato';
 import { aplicarFiltrosDuros, type PecaEntrada } from '@/lib/perfil-looks';
 import { atributosDaFicha } from '@/lib/ficha-ia';
+import { ConviteConta } from '@/components/conta/ConviteConta';
 
 type WeatherData = {
   temp: number;
@@ -237,6 +238,9 @@ export default function InicioPage() {
           )}
         </div>
       </header>
+
+      {/* Convite discreto para quem está experimentando e já investiu no Cabidê */}
+      <ConviteConta />
 
       {/* Sugestão do dia */}
       <section className="mb-10">
