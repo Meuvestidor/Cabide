@@ -19,6 +19,7 @@ import {
   SENTIMENTOS,
   VETOS,
   contextoLabel,
+  intencoesDe,
   labelOf,
   normalizeEstilo,
 } from '@/lib/retrato';
@@ -317,6 +318,30 @@ function regiao(categoria: string): 'cima' | 'baixo' | 'inteira' | null {
   return null;
 }
 
+/**
+ * Tamanhos da usuária comparáveis com a peça, pela região do corpo.
+ * Cima usa tamanho_cima; baixo usa tamanho_baixo (letra) e tamanho_baixo_numero;
+ * peças inteiras (vestido/macacão) comparam com cima e baixo.
+ * Só entram tamanhos do MESMO sistema da peça (letra com letra, número com número).
+ */
+function tamanhosComparaveis(reg: 'cima' | 'baixo' | 'inteira', med: NonNullable<PerfilEstilo['medidas']>, peca: NonNullable<TamanhoLido>) {
+  const candidatos: (string | undefined)[] =
+    reg === 'cima'
+      ? [med.tamanho_cima]
+      : reg === 'baixo'
+      ? [med.tamanho_baixo, med.tamanho_baixo_numero]
+      : [med.tamanho_cima, med.tamanho_baixo, med.tamanho_baixo_numero];
+  return candidatos
+    .map((c) => lerTamanho(c))
+    .filter((t): t is NonNullable<TamanhoLido> => !!t && t.sistema === peca.sistema);
+}
+
+function diferenca(peca: NonNullable<TamanhoLido>, usuaria: NonNullable<TamanhoLido>): number {
+  if (peca.sistema === 'letra' && usuaria.sistema === 'letra') return peca.indice - usuaria.indice;
+  if (peca.sistema === 'numero' && usuaria.sistema === 'numero') return peca.valor - usuaria.valor;
+  return 0;
+}
+
 export function sinaisDeCaimento(p: PecaEntrada, perfil: PerfilEstilo | null): SinalPeca[] {
   if (!perfil?.medidas) return [];
   if (p.como_me_queda) return []; // a percepção real da usuária tem prioridade sobre o tamanho
@@ -335,17 +360,12 @@ export function sinaisDeCaimento(p: PecaEntrada, perfil: PerfilEstilo | null): S
 
   const reg = regiao(p.categoria);
   if (!reg) return [];
-  const usuaria = lerTamanho(med.tamanho_roupa);
-  if (!usuaria || usuaria.sistema !== peca.sistema) return [];
+  const usuaria = tamanhosComparaveis(reg, med, peca);
+  if (!usuaria.length) return []; // sistemas diferentes ou sem informação: nenhum sinal
 
-  const diff =
-    peca.sistema === 'letra' && usuaria.sistema === 'letra'
-      ? peca.indice - usuaria.indice
-      : peca.sistema === 'numero' && usuaria.sistema === 'numero'
-      ? peca.valor - usuaria.valor
-      : 0;
-  if (diff === 0) return [];
-  if (diff < 0) return ['possible_caimento_pequeno'];
+  const diffs = usuaria.map((u) => diferenca(peca, u));
+  if (diffs.some((d) => d < 0)) return ['possible_caimento_pequeno'];
+  if (!diffs.every((d) => d > 0)) return [];
 
   const s = perfil.respostas.silhueta ?? {};
   const prefereAjustado =
@@ -550,9 +570,12 @@ export function buildPerfilRules(perfil: PerfilEstilo, comportamento: SinaisComp
 
   L.push('');
   L.push('### Preferências');
-  if (r.intencao_imagem) {
+  const intencoes = intencoesDe(r);
+  if (intencoes.length) {
     L.push(
-      `- O que ela quer transmitir aos outros: ${labelOf(INTENCOES, r.intencao_imagem)} → ${INTENCAO_REGRAS[r.intencao_imagem]}. Use isso para escolher a peça protagonista, a estrutura, as cores e a proporção, e cite-o em "por_que_funciona".`
+      `- O que ela quer transmitir aos outros: ${intencoes
+        .map((i) => `${labelOf(INTENCOES, i)} (${INTENCAO_REGRAS[i]})`)
+        .join('; ')}. Use isso para escolher a peça protagonista, a estrutura, as cores e a proporção, equilibrando as intenções, e cite-o em "por_que_funciona".`
     );
   }
   if (r.estado_desejado?.length) {

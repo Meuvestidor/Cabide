@@ -10,6 +10,7 @@ import {
   PALETAS,
   SENTIMENTOS,
   contextoLabel,
+  intencoesDe,
   labelOf,
 } from '@/lib/retrato';
 import type { RespostasRetrato } from '@/types/database';
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     const prompt = buildStylePortraitPrompt({
       estilo_atual: (respostas.estilo_atual ?? []).map((e) => labelOf(ESTILOS, e)),
       estilo_desejado: (respostas.estilo_desejado ?? []).map((e) => labelOf(ESTILOS, e)),
-      intencao_imagem: respostas.intencao_imagem ? labelOf(INTENCOES, respostas.intencao_imagem) : null,
+      intencao_imagem: intencoesDe(respostas).map((i) => labelOf(INTENCOES, i)).join(', ') || null,
       estado_desejado: (respostas.estado_desejado ?? []).map((s) => labelOf(SENTIMENTOS, s)),
       contextos: (respostas.contextos ?? []).filter((c) => c !== 'outro').map(contextoLabel),
       conforto: respostas.conforto ?? null,

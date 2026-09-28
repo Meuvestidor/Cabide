@@ -26,6 +26,12 @@ import type {
 
 export const TOTAL_PERGUNTAS = 9;
 
+/** Limites de seleção (quantidade máxima; mínimo 1 para avançar). */
+export const MAX_ESTILO_ATUAL = 4; // P2 — "Escolha até 4 opções."
+export const MAX_ESTILO_DESEJADO = 3; // P3
+export const MAX_INTENCOES = 3; // P4 — "Escolha até 3 opções."
+export const MAX_SENTIMENTOS = 3; // P9
+
 type Opcao<T extends string> = { value: T; label: string };
 
 // ------------------------------------------
@@ -198,7 +204,28 @@ export const COMPRIMENTOS: Opcao<Comprimento>[] = [
   { value: 'midi', label: 'Midi' },
   { value: 'longo', label: 'Longo' },
 ];
-export const TAMANHOS_ROUPA = ['PP', 'P', 'M', 'G', 'GG', 'XG'] as const;
+/** Letras usadas para parte de cima e parte de baixo. */
+export const TAMANHOS_LETRA = ['PP', 'P', 'M', 'G', 'GG', 'XG'] as const;
+/** Numeração da parte de baixo. */
+export const TAMANHOS_NUMERO_BAIXO = ['36', '38', '40', '42', '44', '46', '48'] as const;
+
+/** Linhas de tamanho para exibição: só o que foi preenchido. */
+export function linhasDeTamanho(m: MedidasUsuaria | undefined): string[] {
+  if (!m) return [];
+  const out: string[] = [];
+  if (m.tamanho_cima?.trim()) out.push(`Parte de cima: ${m.tamanho_cima.trim()}`);
+  const baixo = [m.tamanho_baixo?.trim(), m.tamanho_baixo_numero?.trim()].filter(Boolean);
+  if (baixo.length) out.push(`Parte de baixo: ${baixo.join(' / ')}`);
+  if (m.tamanho_calcado?.trim()) out.push(`Calçado: ${m.tamanho_calcado.trim()}`);
+  return out;
+}
+
+/** P4: aceita perfis antigos (uma intenção em texto) e novos (lista). */
+export function intencoesDe(r: RespostasRetrato): Intencao[] {
+  const v = r.intencao_imagem;
+  if (!v) return [];
+  return Array.isArray(v) ? v : [v];
+}
 
 // ------------------------------------------
 // P7 — Cores e estampas
@@ -306,14 +333,18 @@ export function etapaValida(etapa: number, r: RespostasRetrato): boolean {
       if (r.contextos?.includes('outro') && !r.contextos_outro?.trim()) return false;
       return true;
     }
-    case 2:
-      return (r.estilo_atual?.length ?? 0) === 3;
+    case 2: {
+      const n = r.estilo_atual?.length ?? 0;
+      return n >= 1 && n <= MAX_ESTILO_ATUAL;
+    }
     case 3: {
       const n = r.estilo_desejado?.length ?? 0;
-      return n >= 1 && n <= 3;
+      return n >= 1 && n <= MAX_ESTILO_DESEJADO;
     }
-    case 4:
-      return !!r.intencao_imagem;
+    case 4: {
+      const n = intencoesDe(r).length;
+      return n >= 1 && n <= MAX_INTENCOES;
+    }
     case 5:
       return !!r.conforto || !!r.ousadia;
     case 6:
@@ -324,7 +355,7 @@ export function etapaValida(etapa: number, r: RespostasRetrato): boolean {
       return !!(r.vetos?.length || r.vetos_outra?.trim() || r.dor_principal);
     case 9: {
       const n = r.estado_desejado?.length ?? 0;
-      return n >= 1 && n <= 3;
+      return n >= 1 && n <= MAX_SENTIMENTOS;
     }
     default:
       return true;
@@ -379,8 +410,11 @@ export function perfilAtivo(perfilEstilo: unknown): PerfilEstilo | null {
 function limparMedidas(m: MedidasUsuaria | undefined): MedidasUsuaria | undefined {
   if (!m) return undefined;
   const out: MedidasUsuaria = {};
-  if (m.tamanho_roupa?.trim()) out.tamanho_roupa = m.tamanho_roupa.trim();
+  if (m.tamanho_cima?.trim()) out.tamanho_cima = m.tamanho_cima.trim();
+  if (m.tamanho_baixo?.trim()) out.tamanho_baixo = m.tamanho_baixo.trim();
+  if (m.tamanho_baixo_numero?.trim()) out.tamanho_baixo_numero = m.tamanho_baixo_numero.trim();
   if (m.tamanho_calcado?.trim()) out.tamanho_calcado = m.tamanho_calcado.trim();
+  // tamanho_roupa (legado, único para o corpo inteiro) não é mais gravado.
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -451,8 +485,9 @@ export function retratoDeterministico(r: RespostasRetrato): string {
     const cap = juntar(atual);
     frases.push(`${cap.charAt(0).toUpperCase()}${cap.slice(1)}: é assim que o seu estilo aparece hoje.`);
   }
-  if (r.intencao_imagem) {
-    frases.push(`Quando você chega a um lugar, quer ${INTENCAO_FRASE[r.intencao_imagem]}.`);
+  const intencoes = intencoesDe(r);
+  if (intencoes.length) {
+    frases.push(`Quando você chega a um lugar, quer ${juntar(intencoes.map((i) => INTENCAO_FRASE[i]))}.`);
   }
   if (sentir.length) {
     frases.push(`E, ao se vestir, quer se sentir ${juntar(sentir)}.`);

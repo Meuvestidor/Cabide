@@ -104,12 +104,13 @@ export interface RespostasRetrato {
   contextos_outro?: string;
   dress_code?: DressCode;
   formalidade_trabalho?: Escala | 'uniforme';
-  // P2 — Meu estilo hoje (exatamente 3)
+  // P2 — Meu estilo hoje (até 4)
   estilo_atual?: Estilo[];
   // P3 — Como quero me vestir (até 3)
   estilo_desejado?: Estilo[];
-  // P4 — O que quero transmitir aos outros
-  intencao_imagem?: Intencao;
+  // P4 — O que quero transmitir aos outros (até 3).
+  // Perfis salvos antes aceitavam só 1 (string) — ler sempre via intencoesDe().
+  intencao_imagem?: Intencao[] | Intencao;
   // P5 — Conforto + ousadia (escalas independentes)
   conforto?: Escala;
   ousadia?: Escala;
@@ -130,9 +131,22 @@ export interface RespostasRetrato {
   pecas_ancora?: string[];
 }
 
+/**
+ * Tamanhos por região do corpo — o corpo não é tratado como simétrico.
+ * Cada campo é independente e opcional; sistemas diferentes podem coexistir
+ * (ex.: cima "G", baixo "M" e numeração "44", calçado "37").
+ */
 export interface MedidasUsuaria {
-  tamanho_roupa?: string;
+  /** Parte de cima: PP…XG ou texto livre ("Outro"). */
+  tamanho_cima?: string;
+  /** Parte de baixo em letras: PP…XG. */
+  tamanho_baixo?: string;
+  /** Parte de baixo em numeração: 36…48 ou texto livre ("Outro"). */
+  tamanho_baixo_numero?: string;
+  /** Calçado (numeração), independente das roupas. */
   tamanho_calcado?: string;
+  /** @deprecated Tamanho único de roupa (versões anteriores). Não é usado nos sinais de caimento. */
+  tamanho_roupa?: string;
 }
 
 export interface PerfilEstilo {

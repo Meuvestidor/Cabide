@@ -21,6 +21,8 @@ import {
   ESTAMPAS,
   ESTILOS,
   INTENCOES,
+  MAX_ESTILO_ATUAL,
+  MAX_INTENCOES,
   P1_MAX,
   PALETAS,
   SENTIMENTOS,
@@ -29,6 +31,7 @@ import {
   buildPerfil,
   etapaValida,
   getRetratoStatus,
+  intencoesDe,
   isPerfilEstiloV2,
   limparEtapa,
   retratoDeterministico,
@@ -455,13 +458,19 @@ function RetratoFlow() {
         <StepShell
           {...shellProps}
           pergunta="Se alguém descrevesse como você se veste hoje, quais 3 palavras usaria?"
-          instrucao="Escolha exatamente 3."
+          instrucao="Escolha até 4 opções."
           proximaHabilitada={etapaValida(2, respostas)}
         >
           <div className="flex justify-end -mt-3 mb-2">
-            <Contador atual={v.length} max={3} />
+            <Contador atual={v.length} max={MAX_ESTILO_ATUAL} />
           </div>
-          <MultiSelect opcoes={ESTILOS} valores={v} max={3} colunas={2} onChange={(x) => atualizar({ estilo_atual: x })} />
+          <MultiSelect
+            opcoes={ESTILOS}
+            valores={v}
+            max={MAX_ESTILO_ATUAL}
+            colunas={2}
+            onChange={(x) => atualizar({ estilo_atual: x })}
+          />
         </StepShell>
       );
     }
@@ -483,21 +492,27 @@ function RetratoFlow() {
       );
     }
 
-    case 4:
+    case 4: {
+      const v = intencoesDe(respostas);
       return (
         <StepShell
           {...shellProps}
           pergunta="Quando você entra em um lugar, o que gostaria que sua imagem transmitisse primeiro?"
-          instrucao="Escolha 1."
+          instrucao="Escolha até 3 opções."
           proximaHabilitada={etapaValida(4, respostas)}
         >
-          <SingleSelect
+          <div className="flex justify-end -mt-3 mb-2">
+            <Contador atual={v.length} max={MAX_INTENCOES} />
+          </div>
+          <MultiSelect
             opcoes={INTENCOES}
-            valor={respostas.intencao_imagem}
+            valores={v}
+            max={MAX_INTENCOES}
             onChange={(x) => atualizar({ intencao_imagem: x })}
           />
         </StepShell>
       );
+    }
 
     case 5:
       return (
@@ -527,7 +542,12 @@ function RetratoFlow() {
 
     case 6: {
       const s = respostas.silhueta ?? {};
-      const medidasPreenchidas = !!(medidas.tamanho_roupa?.trim() || medidas.tamanho_calcado);
+      const medidasPreenchidas = !!(
+        medidas.tamanho_cima?.trim() ||
+        medidas.tamanho_baixo?.trim() ||
+        medidas.tamanho_baixo_numero?.trim() ||
+        medidas.tamanho_calcado
+      );
       return (
         <StepShell
           {...shellProps}
