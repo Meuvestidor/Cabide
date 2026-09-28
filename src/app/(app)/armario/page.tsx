@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { CATEGORIAS, FORMALIDADE_LABELS, OCASIOES } from '@/lib/constants';
 import { PieceDetail } from '@/components/PieceDetail';
+import { CategoriaSelector } from '@/components/armario/CategoriaSelector';
 import type { Categoria } from '@/types/database';
 import { mergeFichaIa, sanitizarAtributos, sanitizarTamanho } from '@/lib/ficha-ia';
 
@@ -324,11 +325,8 @@ export default function ArmarioPage() {
         </button>
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
       </div>
-      <div role="tablist" className="flex gap-5 overflow-x-auto -mx-4 px-4 scrollbar-hide mb-6 border-b border-border">
-        <button role="tab" aria-selected={filtroCategoria === 'todas'} onClick={() => setFiltroCategoria('todas')} className="tab">Todas</button>
-        {Object.entries(CATEGORIAS).map(([key, label]) => (
-          <button key={key} role="tab" aria-selected={filtroCategoria === key} onClick={() => setFiltroCategoria(key)} className="tab">{label}</button>
-        ))}
+      <div className="mb-6">
+        <CategoriaSelector valor={filtroCategoria} onChange={setFiltroCategoria} categorias={CATEGORIAS} />
       </div>
       {error && (
         <div role="alert" className="mb-5 p-3 border-l-2 border-danger bg-surface flex items-start gap-2">
