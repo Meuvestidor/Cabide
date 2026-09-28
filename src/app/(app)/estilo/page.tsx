@@ -512,9 +512,9 @@ function PerfilPage() {
             </>
           )}
           <ItemConta label="Preferências de estilo" href="/retrato?editar=1" />
-          <ItemConta label="Privacidade" emBreve />
-          <ItemConta label="Termos de uso" emBreve />
-          <ItemConta label="Ajuda" emBreve />
+          <ItemConta label="Privacidade" href="/privacidade" />
+          <ItemConta label="Termos de uso" href="/termos-de-uso" />
+          <ItemConta label="Ajuda" href="/ajuda" />
           <SairButton visitante={visitante} />
         </div>
       </section>

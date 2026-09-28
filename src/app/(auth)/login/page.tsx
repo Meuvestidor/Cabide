@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -145,6 +146,12 @@ export default function LoginPage() {
             {experimentarLoading ? <Loader2 size={18} className="animate-spin" /> : 'Experimentar Cabidê'}
           </button>
         </div>
+
+        <p className="mt-5 text-center text-[12px] text-background/75">
+          <Link href="/termos-de-uso" className="underline underline-offset-4">Termos de uso</Link>
+          <span className="mx-2">·</span>
+          <Link href="/privacidade" className="underline underline-offset-4">Privacidade</Link>
+        </p>
       </div>
     </div>
   );
