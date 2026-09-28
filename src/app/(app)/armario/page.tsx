@@ -10,11 +10,13 @@ import {
   Check,
   AlertCircle,
   Shirt,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { CATEGORIAS, FORMALIDADE_LABELS, OCASIOES } from '@/lib/constants';
 import { PieceDetail } from '@/components/PieceDetail';
 import { CategoriaSelector } from '@/components/armario/CategoriaSelector';
 import type { Categoria } from '@/types/database';
+import { prepararFoto } from '@/lib/imagem';
 import { mergeFichaIa, sanitizarAtributos, sanitizarTamanho } from '@/lib/ficha-ia';
 
 interface PecaRow {
@@ -185,7 +187,9 @@ export default function ArmarioPage() {
   const [selectedPeca, setSelectedPeca] = useState<PecaRow | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<PecaRow | null>(null);
   const [looksPorPeca, setLooksPorPeca] = useState<Record<string, number>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galeriaInputRef = useRef<HTMLInputElement>(null);
+  const [origemAberta, setOrigemAberta] = useState(false);
 
   // "N looks" por peça: looks salvos distintos (grupo_id + tipo) que incluem a peça
   useEffect(() => {
@@ -221,14 +225,29 @@ export default function ArmarioPage() {
 
   useEffect(() => { loadPecas(); }, [loadPecas]);
 
+  function abrirSeletorDeFoto() {
+    // No celular: escolher entre câmera e galeria. No computador: seletor de arquivos direto.
+    const toque = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    if (toque) setOrigemAberta(true);
+    else galeriaInputRef.current?.click();
+  }
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError(null); setImageFile(file);
+    const original = e.target.files?.[0];
+    e.target.value = '';
+    if (!original) return;
+    setOrigemAberta(false);
+    setError(null);
+    if (original.type && !original.type.startsWith('image/')) {
+      setError('Escolha uma foto (JPG, PNG ou similar).');
+      return;
+    }
+    setAnalyzing(true);
+    const file = await prepararFoto(original);
+    setImageFile(file);
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
-    setAnalyzing(true);
     const b64Reader = new FileReader();
     b64Reader.onloadend = async () => {
       const b64 = (b64Reader.result as string).split(',')[1];
@@ -241,7 +260,6 @@ export default function ArmarioPage() {
       setAnalyzing(false);
     };
     b64Reader.readAsDataURL(file);
-    e.target.value = '';
   }
 
   function checkForDuplicate(result: CatalogResult): PecaRow | null {
@@ -275,7 +293,7 @@ export default function ArmarioPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
-    const ext = imageFile.name.split('.').pop() || 'jpg';
+    const ext = imageFile.type === 'image/jpeg' ? 'jpg' : (imageFile.name.split('.').pop() || 'jpg').toLowerCase();
     const fname = `${user.id}/${Date.now()}.${ext}`;
     const { error: uErr } = await supabase.storage.from('pecas').upload(fname, imageFile, { contentType: imageFile.type || 'image/jpeg' });
     if (uErr) { setError('Não conseguimos salvar a foto agora. Tente novamente.'); setSaving(false); return; }
@@ -316,14 +334,16 @@ export default function ArmarioPage() {
           </p>
         </div>
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onClick={abrirSeletorDeFoto}
           disabled={analyzing}
           aria-label="Adicionar peça"
           className="w-11 h-11 rounded-[4px] bg-primary text-background flex items-center justify-center hover:bg-primary-hover transition-colors disabled:opacity-50"
         >
           <Plus size={20} strokeWidth={1.75} />
         </button>
-        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+        {/* Câmera traseira direto (celular) e galeria/arquivos (celular e computador). */}
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+        <input ref={galeriaInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
       </div>
       <div className="mb-6">
         <CategoriaSelector valor={filtroCategoria} onChange={setFiltroCategoria} categorias={CATEGORIAS} />
@@ -357,13 +377,31 @@ export default function ArmarioPage() {
           <p className="text-sm text-muted leading-relaxed mb-6">
             Fotografe sua primeira peça. O Cabidê organiza os detalhes para você.
           </p>
-          <button onClick={() => fileInputRef.current?.click()} className="btn btn-primary w-full">Adicionar peça</button>
+          <button onClick={abrirSeletorDeFoto} className="btn btn-primary w-full">Adicionar peça</button>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-x-3 gap-y-6">
           {pecas.map((peca) => (
             <PieceCard key={peca.id} peca={peca} looksCount={looksPorPeca[peca.id] || 0} onTap={() => setSelectedPeca(peca)} />
           ))}
+        </div>
+      )}
+      {origemAberta && (
+        <div className="fixed inset-0 z-[60] bg-foreground/40 flex items-end sm:items-center justify-center" onClick={() => setOrigemAberta(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="origem-titulo" className="sheet sm:rounded-[4px] w-full max-w-md px-5 pt-5 pb-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="origem-titulo" className="display text-[1.5rem]">Adicionar peça</h2>
+              <button type="button" onClick={() => setOrigemAberta(false)} className="p-1 text-muted" aria-label="Fechar"><X size={18} /></button>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button type="button" onClick={() => cameraInputRef.current?.click()} className="btn btn-primary w-full gap-2">
+                <Camera size={18} strokeWidth={1.75} /> Tirar foto
+              </button>
+              <button type="button" onClick={() => galeriaInputRef.current?.click()} className="btn btn-outline w-full gap-2">
+                <ImageIcon size={18} strokeWidth={1.75} /> Escolher da galeria
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {catalogResult && imagePreview && <CatalogReview data={catalogResult} imagePreview={imagePreview} onConfirm={handlePreSave} onCancel={() => { setCatalogResult(null); setImagePreview(''); setImageFile(null); setError(null); }} saving={saving} />}
