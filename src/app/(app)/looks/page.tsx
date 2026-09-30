@@ -1,5 +1,6 @@
 'use client';
 
+import { photoSrc } from '@/lib/photos';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Sparkles,
@@ -716,7 +717,7 @@ export default function LooksPage() {
                 }`}
               >
                 {p.imagem_url ? (
-                  <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover" />
+                  <img src={photoSrc(p.imagem_url)} alt={p.nome} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-surface-alt flex items-center justify-center">
                     <Shirt size={16} className="text-muted" />

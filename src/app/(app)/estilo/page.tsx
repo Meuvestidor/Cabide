@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase-client';
 import { Loader2, Send, RefreshCw, Sparkles, Briefcase, Palette, Ban, Ruler } from 'lucide-react';
 import type { PerfilEstilo } from '@/types/database';
+import LogoutButton from '@/components/LogoutButton';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -200,6 +201,7 @@ function ProfileSummary({
           )}
         </div>
       </section>
+      <LogoutButton />
     </div>
   );
 }
@@ -537,6 +539,7 @@ export default function EstiloPage() {
           Iniciar entrevista
         </button>
       </div>
+      <LogoutButton />
     </div>
   );
 }

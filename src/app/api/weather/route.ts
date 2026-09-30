@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAppUser } from '@/server/auth';
 
 // Open-Meteo — FREE, no API key, no registration
 // https://open-meteo.com/en/docs
@@ -73,9 +74,12 @@ async function geocodeCity(cityName: string): Promise<{ lat: number; lon: number
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAppUser();
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
-    const cityParam = searchParams.get('city');
+    const cityParam = searchParams.get('city')?.slice(0, 100) ?? null;
     const latParam = searchParams.get('lat');
     const lonParam = searchParams.get('lon');
 

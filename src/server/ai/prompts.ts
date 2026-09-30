@@ -1,3 +1,5 @@
+import 'server-only';
+
 // ============================================
 // MEU VESTIDOR — Claude API Prompts
 // Based on PRD sections 8, 10, 11, 12

@@ -1,33 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
-import { STYLE_INTERVIEW_SYSTEM } from '@/lib/prompts';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+import { requireAppUser } from '@/server/auth';
+import { getAnthropic, AI_MODELS } from '@/server/ai/anthropic';
+import { STYLE_INTERVIEW_SYSTEM } from '@/server/ai/prompts';
+import { getServerT } from '@/i18n/server';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
+// Limites contra abuso de custo da IA
+const MAX_MESSAGES = 60;
+const MAX_MESSAGE_LENGTH = 4000;
+const MAX_NAME_LENGTH = 80;
+
 export async function POST(req: NextRequest) {
+  const auth = await requireAppUser();
+  if (!auth.ok) return auth.response;
+  const t = await getServerT();
+
   try {
     const { messages, userName } = (await req.json()) as {
       messages: ChatMessage[];
       userName: string;
     };
 
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
+    const valid =
+      Array.isArray(messages) &&
+      messages.length > 0 &&
+      messages.length <= MAX_MESSAGES &&
+      messages.every(
+        (m) =>
+          (m?.role === 'user' || m?.role === 'assistant') &&
+          typeof m.content === 'string' &&
+          m.content.length <= MAX_MESSAGE_LENGTH,
+      );
+    if (!valid) {
+      return NextResponse.json({ error: t('api.badRequest') }, { status: 400 });
     }
 
-    const systemPrompt = `${STYLE_INTERVIEW_SYSTEM}\n\nO nome da usuária é: ${userName || 'a usuária'}.`;
+    const safeName = typeof userName === 'string' ? userName.slice(0, MAX_NAME_LENGTH) : '';
+    const systemPrompt = `${STYLE_INTERVIEW_SYSTEM}\n\nO nome da usuária é: ${safeName || 'a usuária'}.`;
 
     const apiMessages = messages.map((msg) => ({ role: msg.role, content: msg.content }));
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+    const response = await getAnthropic().messages.create({
+      model: AI_MODELS.interview,
       max_tokens: 1024,
       system: systemPrompt,
       messages: apiMessages,
@@ -51,6 +69,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: displayText, isComplete, perfilEstilo });
   } catch (error) {
     console.error('Style interview API error:', error);
-    return NextResponse.json({ error: 'Failed to process interview message' }, { status: 500 });
+    return NextResponse.json({ error: t('api.interviewFailed') }, { status: 500 });
   }
 }

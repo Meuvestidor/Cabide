@@ -1,5 +1,6 @@
 'use client';
 
+import { photoSrc } from '@/lib/photos';
 import { useState, useCallback } from 'react';
 import {
   X,
@@ -290,7 +291,7 @@ export function PieceDetail({
         <div className="px-4 pt-4">
           <div className="rounded-2xl overflow-hidden aspect-[3/4] bg-surface-alt relative">
             {peca.imagem_url ? (
-              <img src={peca.imagem_url} alt={peca.nome} className="w-full h-full object-cover" />
+              <img src={photoSrc(peca.imagem_url)} alt={peca.nome} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <ShoppingBag size={48} className="text-muted" />

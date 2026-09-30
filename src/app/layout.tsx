@@ -1,16 +1,28 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { I18nProvider } from "@/i18n/client";
+import { getLocale } from "@/i18n/server";
+import { getMessages } from "@/i18n/translate";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "Meu Vestidor",
+  title: "Cabidê",
   description:
     "Sua estilista pessoal com IA. Digitalize seu armário e receba sugestões de looks inteligentes.",
-  manifest: "/manifest.json",
+  applicationName: "Cabidê",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Meu Vestidor",
+    title: "Cabidê",
   },
+  icons: {
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -21,9 +33,11 @@ export const viewport: Viewport = {
   themeColor: "#5E4F72",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+
   return (
-    <html lang="pt-BR">
+    <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -33,7 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-dvh flex flex-col antialiased">
-        {children}
+        <I18nProvider locale={locale} messages={getMessages(locale)}>
+          {children}
+        </I18nProvider>
+        <ServiceWorkerRegister version={process.env.NEXT_PUBLIC_APP_VERSION || "dev"} />
       </body>
     </html>
   );

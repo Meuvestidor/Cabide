@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 import { Loader2, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { useT } from '@/i18n/client';
 
 const VIDEO_URL = 'https://bhutjllmjqjitlwpqwjf.supabase.co/storage/v1/object/public/video%20Cabide/cabide.mp4';
 
 export default function LoginPage() {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +33,7 @@ export default function LoginPage() {
     if (error) {
       setError(
         error.message === 'Invalid login credentials'
-          ? 'E-mail ou senha incorretos.'
+          ? t('auth.login.invalidCredentials')
           : error.message
       );
       setLoading(false);
@@ -54,7 +56,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError('Erro ao conectar com Google. Tente novamente.');
+      setError(t('auth.googleError'));
       setGoogleLoading(false);
     }
   }
@@ -132,7 +134,7 @@ export default function LoginPage() {
               textShadow: '0 1px 8px rgba(45,42,38,0.2)',
             }}
           >
-            seu estilo. mais você.
+            {t('auth.tagline')}
           </p>
         </div>
       </div>
@@ -151,7 +153,7 @@ export default function LoginPage() {
             color: '#2D2A26',
           }}
         >
-          Acesse seu armário
+          {t('auth.login.title')}
         </p>
 
         <form onSubmit={handleLogin} className="flex flex-col gap-4 w-full max-w-sm mx-auto">
@@ -162,7 +164,7 @@ export default function LoginPage() {
               className="block mb-1"
               style={{ fontSize: '0.8125rem', fontWeight: 500, color: '#2D2A26' }}
             >
-              E-mail
+              {t('auth.emailLabel')}
             </label>
             <div className="relative">
               <Mail
@@ -173,7 +175,7 @@ export default function LoginPage() {
               <input
                 id="email"
                 type="email"
-                placeholder="seu@email.com"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -206,7 +208,7 @@ export default function LoginPage() {
               className="block mb-1"
               style={{ fontSize: '0.8125rem', fontWeight: 500, color: '#2D2A26' }}
             >
-              Senha
+              {t('auth.passwordLabel')}
             </label>
             <div className="relative">
               <Lock
@@ -217,7 +219,7 @@ export default function LoginPage() {
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Digite sua senha"
+                placeholder={t('auth.login.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -261,7 +263,7 @@ export default function LoginPage() {
                   textDecoration: 'none',
                 }}
               >
-                Esqueceu sua senha?
+                {t('auth.login.forgot')}
               </Link>
             </div>
           </div>
@@ -300,17 +302,17 @@ export default function LoginPage() {
             {loading ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Entrando...
+                {t('auth.login.submitting')}
               </>
             ) : (
-              'Entrar'
+              t('auth.login.submit')
             )}
           </button>
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-1">
             <div className="flex-1 h-px" style={{ background: '#E8E4DE' }} />
-            <span style={{ fontSize: '0.75rem', color: '#9A958F' }}>ou</span>
+            <span style={{ fontSize: '0.75rem', color: '#9A958F' }}>{t('common.or')}</span>
             <div className="flex-1 h-px" style={{ background: '#E8E4DE' }} />
           </div>
 
@@ -342,7 +344,7 @@ export default function LoginPage() {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
             )}
-            Continuar com Google
+            {t('auth.google')}
           </button>
 
           {/* Sign up link */}
@@ -350,7 +352,7 @@ export default function LoginPage() {
             className="text-center mt-2"
             style={{ fontSize: '0.8125rem', color: '#6B6560' }}
           >
-            Não tem conta?{' '}
+            {t('auth.login.noAccount')}{' '}
             <Link
               href="/signup"
               style={{
@@ -361,7 +363,7 @@ export default function LoginPage() {
                 textDecorationThickness: '1px',
               }}
             >
-              Criar conta
+              {t('auth.login.createAccount')}
             </Link>
           </p>
         </form>
@@ -387,7 +389,7 @@ export default function LoginPage() {
             />
             <path d="M14 16L14 20M14 20L7 25M14 20L21 25" stroke="#C4B8E9" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
-          moda · organização · praticidade
+          {t('auth.footer')}
         </div>
       </div>
     </div>

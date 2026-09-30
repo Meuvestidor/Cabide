@@ -1,5 +1,6 @@
 'use client';
 
+import { photoSrc } from '@/lib/photos';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase-client';
 import {
@@ -70,7 +71,7 @@ function PieceCard({ peca, onTap }: { peca: PecaRow; onTap: () => void }) {
     <button onClick={onTap} className="rounded-2xl bg-surface border border-border overflow-hidden text-left w-full transition-transform active:scale-[0.97]">
       <div className="aspect-square bg-surface-alt relative">
         {peca.imagem_url ? (
-          <img src={peca.imagem_url} alt={peca.nome} className="w-full h-full object-cover" loading="lazy" />
+          <img src={photoSrc(peca.imagem_url)} alt={peca.nome} className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center"><Shirt size={32} className="text-muted" /></div>
         )}
@@ -288,7 +289,7 @@ export default function ArmarioPage() {
             <div className="flex items-center gap-3 bg-surface-alt rounded-xl p-3 mb-3">
               {duplicateWarning.imagem_url && (
                 <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={duplicateWarning.imagem_url} alt={duplicateWarning.nome} className="w-full h-full object-cover" />
+                  <img src={photoSrc(duplicateWarning.imagem_url)} alt={duplicateWarning.nome} className="w-full h-full object-cover" />
                 </div>
               )}
               <div>

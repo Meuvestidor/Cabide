@@ -1,0 +1,76 @@
+{
+  "common": {
+    "appName": "Cabidê",
+    "or": "o"
+  },
+  "auth": {
+    "tagline": "tu estilo. más tú.",
+    "footer": "moda · organización · practicidad",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "tu@email.com",
+    "passwordLabel": "Contraseña",
+    "google": "Continuar con Google",
+    "googleError": "Error al conectar con Google. Inténtalo de nuevo.",
+    "login": {
+      "title": "Accede a tu armario",
+      "passwordPlaceholder": "Escribe tu contraseña",
+      "forgot": "¿Olvidaste tu contraseña?",
+      "submit": "Entrar",
+      "submitting": "Entrando...",
+      "noAccount": "¿No tienes cuenta?",
+      "createAccount": "Crear cuenta",
+      "invalidCredentials": "Correo o contraseña incorrectos."
+    },
+    "signup": {
+      "title": "Crear cuenta",
+      "subtitle": "Empieza a descubrir el potencial de tu armario",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Tu nombre",
+      "passwordPlaceholder": "Mínimo 6 caracteres",
+      "inviteLabel": "Código de invitación",
+      "invitePlaceholder": "CABIDE-XXXX-XXXX",
+      "submit": "Crear cuenta",
+      "submitting": "Creando cuenta...",
+      "haveAccount": "¿Ya tienes cuenta?",
+      "login": "Entrar",
+      "passwordMin": "La contraseña debe tener al menos 6 caracteres.",
+      "alreadyRegistered": "Este correo ya está registrado.",
+      "checkEmailTitle": "Revisa tu correo",
+      "checkEmailPrefix": "Enviamos un enlace de confirmación a",
+      "checkEmailSuffix": "Haz clic en el enlace para activar tu cuenta.",
+      "backToLogin": "Volver al inicio de sesión"
+    },
+    "logout": "Cerrar sesión"
+  },
+  "invite": {
+    "title": "Cabidê está en beta privada",
+    "body": "Para acceder, ingresa el código de invitación que recibiste.",
+    "submit": "Validar invitación",
+    "submitting": "Validando...",
+    "logout": "Salir",
+    "status": {
+      "required": "Cabidê está en beta privada. Ingresa tu código de invitación.",
+      "invalid": "Código de invitación inválido.",
+      "used": "Esta invitación ya fue utilizada.",
+      "expired": "Esta invitación expiró.",
+      "revoked": "Esta invitación fue cancelada.",
+      "email_mismatch": "Esta invitación fue emitida para otro correo.",
+      "generic": "No fue posible validar la invitación. Inténtalo de nuevo."
+    }
+  },
+  "api": {
+    "unauthorized": "Tu sesión expiró. Vuelve a entrar.",
+    "forbidden": "Acceso restringido a la beta privada de Cabidê.",
+    "badRequest": "Solicitud inválida.",
+    "imageRequired": "Envía una foto de la prenda.",
+    "imageTooLarge": "La foto es muy grande (máx. 10 MB).",
+    "imageType": "Formato de imagen no soportado.",
+    "catalogFailed": "No fue posible analizar la prenda. Inténtalo de nuevo.",
+    "aiParse": "No fue posible interpretar la respuesta de la IA. Inténtalo de nuevo.",
+    "looksRequired": "Elige una ocasión y registra prendas en tu armario.",
+    "looksFailed": "No fue posible generar los looks. Inténtalo de nuevo.",
+    "looksAdjusted": " (Algunas prendas fueron ajustadas por la validación.)",
+    "interviewFailed": "No fue posible procesar el mensaje. Inténtalo de nuevo.",
+    "notFound": "No encontrado."
+  }
+}

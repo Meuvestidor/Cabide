@@ -1,5 +1,6 @@
 'use client';
 
+import { photoSrc } from '@/lib/photos';
 import { Shirt } from 'lucide-react';
 import { FLAT_LAY_POSITIONS } from '@/lib/constants';
 
@@ -79,7 +80,7 @@ export function FlatLayView({
     return (
       <div className={`${cellClass} ${aspectRatio} relative group`}>
         {peca.imagem_url ? (
-          <img src={peca.imagem_url} alt={peca.nome} className={imgClass} />
+          <img src={photoSrc(peca.imagem_url)} alt={peca.nome} className={imgClass} />
         ) : (
           <div className={emptyClass}>
             <Shirt size={compact ? 16 : 24} className="text-muted" />

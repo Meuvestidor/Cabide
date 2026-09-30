@@ -1,5 +1,6 @@
 "use client";
 
+import { photoSrc } from "@/lib/photos";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-client";
 import {
@@ -124,7 +125,7 @@ function LookHistoryCard({
               >
                 {p.imagem_url ? (
                   <img
-                    src={p.imagem_url}
+                    src={photoSrc(p.imagem_url)}
                     alt={p.nome}
                     className="w-full h-full object-cover"
                   />

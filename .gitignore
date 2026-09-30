@@ -38,3 +38,20 @@ Thumbs.db
 .idea
 *.swp
 *.swo
+
+# secrets / credenciais (nunca versionar)
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+service-account*.json
+*credentials*.json
+supabase/.temp
+supabase/.branches
+*.dump
+*.sql.gz
+*.backup
+coverage

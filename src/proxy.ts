@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { hasAppAccess } from '@/server/access';
 
-const PROTECTED_ROUTES = ['/inicio', '/armario', '/looks', '/estilo', '/feedback'];
+// Tudo que não está aqui exige sessão (padrão: negar).
+const PUBLIC_ROUTES = ['/login', '/signup', '/forgot-password', '/auth'];
 const AUTH_ROUTES = ['/login', '/signup'];
+const INVITE_ROUTE = '/convite';
+
+function matches(pathname: string, routes: string[]) {
+  return routes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -30,25 +37,31 @@ export async function proxy(request: NextRequest) {
     }
   );
 
+  // Redireciona preservando cookies de sessão renovados nesta requisição.
+  const redirectTo = (path: string, next?: string) => {
+    const url = new URL(path, request.url);
+    if (next) url.searchParams.set('next', next);
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  };
+
   const { data: { user } } = await supabase.auth.getUser();
 
-  const isProtected = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
-  if (isProtected && !user) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
+  if (!user) {
+    if (pathname === '/') return redirectTo('/login');
+    if (matches(pathname, PUBLIC_ROUTES)) return response;
+    return redirectTo('/login', pathname);
   }
 
-  const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
-  if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL('/inicio', request.url));
+  // Sessão válida, mas sem convite na beta privada → tela de convite.
+  if (!(await hasAppAccess(supabase, user))) {
+    if (pathname === INVITE_ROUTE || matches(pathname, ['/auth'])) return response;
+    return redirectTo(INVITE_ROUTE);
   }
 
-  if (pathname === '/') {
-    if (user) {
-      return NextResponse.redirect(new URL('/inicio', request.url));
-    }
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (pathname === '/' || pathname === INVITE_ROUTE || matches(pathname, AUTH_ROUTES)) {
+    return redirectTo('/inicio');
   }
 
   return response;
@@ -56,6 +69,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api|auth/callback|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api|auth/callback|manifest.webmanifest|sw.js|offline.html|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp4)$).*)',
   ],
 };
