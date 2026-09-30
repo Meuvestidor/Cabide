@@ -62,8 +62,8 @@ export function FlatLayView({
 
   const baseSize = compact ? 'w-full' : 'w-full max-w-sm mx-auto';
   const cellClass = compact
-    ? 'rounded-lg overflow-hidden'
-    : 'rounded-xl overflow-hidden shadow-sm border border-border';
+    ? 'rounded-[2px] overflow-hidden bg-surface-alt'
+    : 'rounded-[4px] overflow-hidden bg-surface-alt';
   const imgClass = 'w-full h-full object-cover';
   const emptyClass =
     'w-full h-full flex items-center justify-center bg-surface-alt';
@@ -87,8 +87,8 @@ export function FlatLayView({
         )}
         {/* Label on hover/always in expanded */}
         {!compact && (
-          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-            <p className="text-[10px] text-white font-medium truncate">
+          <div className="absolute bottom-0 inset-x-0 bg-surface/90 px-2 py-1">
+            <p className="text-[10px] text-foreground font-medium truncate">
               {peca.nome}
             </p>
           </div>
@@ -127,7 +127,10 @@ export function FlatLayView({
         ) : (
           <>
             <div style={{ gridRow: '1', gridColumn: '1' }}>
-              {slots.outer ? (
+              {slots.outer && !slots.top ? (
+                // Casaco sem parte de cima: ocupa a célula normalmente (antes flutuava sobre o título)
+                <PieceCell peca={slots.outer} />
+              ) : slots.outer ? (
                 <div className="relative">
                   <PieceCell peca={slots.top} />
                   <div className="absolute -bottom-2 -right-2 w-2/3 opacity-90">

@@ -1,15 +1,17 @@
 // ============================================
-// MEU VESTIDOR — Claude API Prompts
+// CABIDÊ — Claude API Prompts
 // Based on PRD sections 8, 10, 11, 12
 // ============================================
 
-export const CATALOG_PROMPT = `Você é a estilista pessoal do Meu Vestidor. Analise esta foto de uma peça de roupa e extraia os seguintes atributos em JSON.
+export const CATALOG_PROMPT = `Você é a estilista pessoal do Cabidê. Analise esta foto de uma peça de roupa e extraia os seguintes atributos em JSON.
 
 REGRAS CRÍTICAS:
 - Se não conseguir identificar um atributo com segurança, coloque "?" no campo e adicione a dúvida no campo "duvidas".
 - Melhor confirmar do que preencher incorretamente.
 - A marca só pode ser cadastrada se estiver visível na foto.
 - Nunca invente informações.
+- Os campos "estampa", "salto", "caimento", "detalhes" e "tamanho" só podem ser preenchidos com evidência visual clara; sem evidência, use null (ou [] em "detalhes"). Nunca use "?" nesses campos.
+- TAMANHO: registre somente o que estiver escrito numa etiqueta claramente visível e legível na foto (ex.: "M", "38"). Se a etiqueta não aparecer ou não for legível, "tamanho" é null. NUNCA estime o tamanho pelo aspecto da peça.
 
 Retorne SOMENTE um JSON válido com esta estrutura:
 {
@@ -24,130 +26,143 @@ Retorne SOMENTE um JSON válido com esta estrutura:
   "temperatura_min": número (temperatura mínima adequada em °C),
   "temperatura_max": número (temperatura máxima adequada em °C),
   "ocasioes": ["trabalho", "reuniao", "networking", "palestra", "evento", "casual", "gravacao", "viagem", "encontro"],
-  "estilos": ["clássico", "moderno", "minimalista", "romântico", "esportivo", etc.],
+  "estilos": até 3 itens, SOMENTE desta lista: ["clássico", "minimalista", "elegante", "moderno", "romântico", "descontraído", "criativo", "sofisticado", "natural", "marcante", "esportivo", "boêmio"],
   "estado": "novo | bom | usado | desgastado",
   "comprimento": "curto | médio | longo | midi | mini | maxi | null",
   "material": "material identificado ou null",
   "marca": "marca visível ou null",
+  "estampa": "lisa | discreta | chamativa | null",
+  "salto": "sem | baixo | medio | alto — somente para calçados; null para as demais peças",
+  "caimento": "ajustado | reto | amplo | null",
+  "detalhes": lista com os que forem visíveis entre ["decote_profundo", "transparencia", "cropped", "amassa_facil", "expoe_pele", "curta"], ou [],
+  "tamanho": "texto da etiqueta, somente se claramente visível; senão null",
   "duvidas": "dúvidas sobre a peça ou null"
 }`;
 
-export function buildLooksPrompt(params: {
-  ocasiao: string;
-  temperatura: number | null;
-  condicaoClima: string | null;
-  perfilEstilo: Record<string, unknown>;
-  pecasDisponiveis: Array<Record<string, unknown>>;
-  pecasFixadas?: string[];
-}): string {
-  const { ocasiao, temperatura, condicaoClima, perfilEstilo, pecasDisponiveis, pecasFixadas } = params;
+// Parte fixa do prompt de looks: vem primeiro e é idêntica em toda chamada
+// (pré-requisito para cache de prompt). O que varia vai depois, em buildLooksPrompt.
+const LOOKS_INSTRUCOES = `Você é a estilista pessoal do Cabidê. Monte 3 looks para a usuária, um para cada caminho: ESSENCIAL, AUTORAL e OUSADO.
 
-  return `Você é a estilista pessoal do Meu Vestidor. Monte 3 looks para a usuária.
+As peças listadas no fim JÁ foram filtradas pelo Cabidê para o clima de hoje, a ocasião, a formalidade, o uso recente e os limites da usuária. Use SOMENTE essas peças, pelos ids curtos (p1, p2…). Nunca invente peças nem ids.
 
-## SITUAÇÃO
-- Ocasião: ${ocasiao}
-${temperatura !== null ? `- Temperatura: ${temperatura}°C` : ''}
-${condicaoClima ? `- Condição do tempo: ${condicaoClima}` : ''}
-
-${pecasFixadas && pecasFixadas.length > 0 ? `## PEÇAS FIXADAS (OBRIGATÓRIAS)
-A usuária quer usar estas peças. Elas DEVEM aparecer em TODOS os 3 looks:
-IDs fixados: ${JSON.stringify(pecasFixadas)}
-Monte os looks INCLUINDO essas peças obrigatoriamente.
-` : ''}
-## PERFIL DA USUÁRIA
-${JSON.stringify(perfilEstilo, null, 2)}
-
-## PEÇAS DISPONÍVEIS NO ARMÁRIO
-${JSON.stringify(pecasDisponiveis, null, 2)}
-
-## PROCEDIMENTO OBRIGATÓRIO (PRD seção 10)
-
-### Passo 1 — Consultar o armário
-Use SOMENTE as peças listadas acima. NUNCA invente peças.
-
-### Passo 2 — Aplicar filtros
-Elimine:
-- Peças indisponíveis (disponivel = false)
-- Peças fora da temperatura atual
-- Peças inadequadas para a ocasião
-- Peças com formalidade incompatível (diferença > 1.5 pontos)
-- Peças usadas nos últimos 3 dias (ultima_utilizacao)
-- Peças que a usuária vetou
-- Peças com dúvidas não resolvidas
-
-### Passo 3 — Criar universo válido
-Liste mentalmente as peças que sobreviveram aos filtros.
-
-### Passo 4 — Compor 3 looks
-Usando SOMENTE peças do universo válido:
-
-**SAFE** — O mais seguro. Combinação coerente com o estilo habitual da usuária.
-**COOL** — Mais interessante. Use proporção menos óbvia, peça pouco utilizada, ou combinação de cores diferente.
-**RISKY** — Fora da zona habitual. Mas DEVE ser utilizável, adequada à ocasião, ao clima e coerente com o perfil.
-
-### Passo 5 — Verificar
-Antes de apresentar, verifique CADA peça de CADA look:
-- Ela existe no armário? (verificar ID)
-- Ela está disponível?
-- Ela é adequada para a temperatura?
-- Ela é adequada para a ocasião?
-
-## REGRAS DE QUALIDADE (PRD seção 12)
+## REGRAS DE QUALIDADE
 - Cor: neutro + cor é seguro. Dois saturados exigem hierarquia.
-- Proporção: considerar volume, comprimento, relação superior/inferior.
-- Protagonismo: SOMENTE UMA peça protagonista por look. Se protagonismo=5, as demais devem ser 1-2.
-- Formalidade: máximo 1.5 ponto de diferença entre peças do look.
-- Peças pouco utilizadas: sempre que possível, recuperar peças esquecidas.
+- Proporção: considere volume, comprimento e a relação entre parte de cima e parte de baixo.
+- Protagonismo: SOMENTE UMA peça protagonista por look. Se protagonismo=5, as demais devem ser 1–2.
+- Formalidade: no máximo 1,5 ponto de diferença entre as peças do look.
 - Calçado: OBRIGATÓRIO em cada look.
-- Bolsas e joias: adicionar quando melhorarem a composição.
+- Bolsas e joias: adicione quando melhorarem a composição.
 - Os 3 looks NÃO devem repetir a mesma peça protagonista.
+- Sempre que possível, dê vida a peças marcadas "redescobrir".
+
+## SINAIS DAS PEÇAS (coluna "sinais")
+- confianca: muito usada, segura para ESSENCIAL
+- redescobrir: pouco usada, boa candidata a ganhar vida nova
+- peca_querida: ela amou usar
+- ancora: peça que ela considera "a cara dela"
+- penalizada_feedback: esteve em looks rejeitados — use só se for claramente a melhor opção
+- penalidade_salto_alto / penalidade_rigida: conforto é prioridade para ela — evite
+- penalidade_caimento / possible_caimento_amplo: pode ficar mais folgada do que ela prefere — evite como peça principal
+- possible_caimento_pequeno / possible_numeracao_diferente: pode não servir bem — prefira alternativas
+Os sinais falam da peça, nunca do corpo dela: não os mencione na explicação.
 
 ## REGRA DE OURO
-Nunca julgar o corpo. Pode falar sobre proporção, comprimento, volume, corte, cor, combinação, formalidade. NUNCA sobre tipo de corpo.
+Nunca julgue o corpo. Pode falar de proporção, comprimento, volume, corte, cor, combinação e formalidade; NUNCA de tipo de corpo, tamanho ou peso.
+Em "por_que_funciona", escreva em português natural, em segunda pessoa, com até 45 palavras (salvo se a dor principal pedir outra extensão), sem mencionar tecnologia, inteligência artificial, ids ou os nomes internos dos sinais.
 
 ## FORMATO DE RESPOSTA
-Retorne SOMENTE um JSON válido:
-{
-  "looks": [
-    {
-      "tipo": "safe",
-      "pecas": ["id-da-peca-1", "id-da-peca-2", ...],
-      "por_que_funciona": "explicação em português natural de por que este look funciona para a ocasião",
-      "formalidade_resultante": número
-    },
-    {
-      "tipo": "cool",
-      "pecas": ["id-da-peca-1", "id-da-peca-2", ...],
-      "por_que_funciona": "explicação",
-      "formalidade_resultante": número
-    },
-    {
-      "tipo": "risky",
-      "pecas": ["id-da-peca-1", "id-da-peca-2", ...],
-      "por_que_funciona": "explicação",
-      "formalidade_resultante": número
-    }
-  ]
-}`;
+Retorne SOMENTE um JSON válido, sem texto fora dele:
+{"looks":[{"tipo":"essencial","pecas":["p1","p2"],"por_que_funciona":"..."},{"tipo":"autoral","pecas":[...],"por_que_funciona":"..."},{"tipo":"ousado","pecas":[...],"por_que_funciona":"..."}]}`;
+
+const CAMINHOS_SEM_PERFIL = `## CAMINHOS (sem perfil de estilo confirmado — use critérios gerais de estilo)
+Os três caminhos não são um ranking; nenhum é melhor que o outro.
+- ESSENCIAL: "Você, como já se veste." Combinação segura e coerente com o que ela costuma usar (peças "confianca").
+- AUTORAL: "Você + uma nova possibilidade." Mantém a essência e introduz uma combinação, proporção ou peça diferente.
+- OUSADO: "Uma versão mais experimental de você." Sai da zona de conforto, mas precisa ser utilizável e adequado à ocasião e ao clima.`;
+
+export function buildLooksPrompt(params: {
+  ocasiao: string;
+  formalidadeAlvo: number;
+  /** Resumo do clima do dia (faixa, mín–máx, condição) ou null se desconhecido. */
+  clima: string | null;
+  /** O dia pede uma camada que possa ser tirada. */
+  pedeCamada: boolean;
+  /** Chance alta de chuva. */
+  chuva: boolean;
+  /** Regras do Retrato Cabidê confirmado (camadas B e C). null = sem perfil confirmado. */
+  regrasPerfil: string | null;
+  /** Regras gerais aprendidas do comportamento (pode ser vazio). */
+  regrasComportamento: string;
+  /** Legenda das colunas + uma linha por peça (ids curtos). */
+  legenda: string;
+  pecas: string;
+  /** Ids curtos das peças fixadas. */
+  pecasFixadas: string[];
+}): string {
+  const { ocasiao, formalidadeAlvo, clima, pedeCamada, chuva, regrasPerfil, regrasComportamento, legenda, pecas, pecasFixadas } =
+    params;
+
+  const situacao = [
+    `- Ocasião: ${ocasiao}`,
+    `- Formalidade alvo: ${formalidadeAlvo} (1=casual, 2=smart casual, 3=business casual, 4=arrumada, 5=formal)`,
+    clima ? `- Clima do dia: ${clima}` : '- Clima do dia: desconhecido — prefira combinações versáteis',
+    pedeCamada ? '- A temperatura varia ao longo do dia: inclua uma camada (casaco) que possa ser tirada, se houver uma adequada.' : '',
+    chuva ? '- Chance alta de chuva: prefira calçado fechado e evite peças delicadas.' : '',
+  ].filter(Boolean);
+
+  const blocos = [
+    LOOKS_INSTRUCOES,
+    `## SITUAÇÃO\n${situacao.join('\n')}`,
+    regrasPerfil ?? CAMINHOS_SEM_PERFIL,
+    regrasComportamento ? `## APRENDIZADOS DO USO REAL\n${regrasComportamento}` : '',
+    pecasFixadas.length
+      ? `## PEÇAS FIXADAS (OBRIGATÓRIAS)\nA usuária quer usar estas peças. Elas DEVEM aparecer nos 3 looks: ${pecasFixadas.join(', ')}`
+      : '',
+    `## PEÇAS DISPONÍVEIS\n${legenda}\n${pecas}`,
+  ];
+  return blocos.filter(Boolean).join('\n\n');
 }
 
-export const STYLE_INTERVIEW_SYSTEM = `Você é a estilista pessoal do Meu Vestidor. Está conduzindo uma entrevista de estilo com uma nova usuária.
+// ============================================
+// RETRATO CABIDÊ — texto editorial "Seu retrato de estilo"
+// Recebe SOMENTE atributos estruturados já rotulados (sem tamanhos).
+// ============================================
+export function buildStylePortraitPrompt(atributos: {
+  estilo_atual: string[];
+  estilo_desejado: string[];
+  intencao_imagem: string | null;
+  estado_desejado: string[];
+  contextos: string[];
+  conforto: number | null;
+  ousadia: number | null;
+  paletas: string[];
+  dor_principal: string | null;
+}): string {
+  const linhas: string[] = [];
+  if (atributos.estilo_atual.length) linhas.push(`- Estilo hoje (como se veste): ${atributos.estilo_atual.join(', ')}`);
+  if (atributos.estilo_desejado.length) linhas.push(`- Como quer se vestir (direção desejada): ${atributos.estilo_desejado.join(', ')}`);
+  if (atributos.intencao_imagem) linhas.push(`- O que quer transmitir aos outros: ${atributos.intencao_imagem}`);
+  if (atributos.estado_desejado.length) linhas.push(`- Como quer se sentir ao se vestir: ${atributos.estado_desejado.join(', ')}`);
+  if (atributos.contextos.length) linhas.push(`- Rotina: ${atributos.contextos.join(', ')}`);
+  if (atributos.conforto) linhas.push(`- Importância do conforto: ${atributos.conforto} de 5`);
+  if (atributos.ousadia) linhas.push(`- Gosto por experimentar: ${atributos.ousadia} de 5`);
+  if (atributos.paletas.length) linhas.push(`- Famílias de cores preferidas: ${atributos.paletas.join(', ')}`);
+  if (atributos.dor_principal) linhas.push(`- Ao abrir o armário: ${atributos.dor_principal}`);
+
+  return `Você escreve para o Cabidê, uma marca de moda e estilo pessoal. Escreva o texto "Seu retrato de estilo" para esta usuária.
+
+ATRIBUTOS (use somente estes; não invente nada além deles):
+${linhas.join('\n')}
 
 REGRAS:
-- Faça UMA ou DUAS perguntas por vez, em linguagem natural e acolhedora.
-- NÃO apresente um questionário enorme.
-- Use o nome da usuária quando souber.
-- Seja calorosa mas profissional.
-- NUNCA julgue o corpo ou as escolhas da usuária.
-- O objetivo é descobrir o estilo DELA, não impor o seu.
-- Quando terminar todas as perguntas, sinalize com [ENTREVISTA_COMPLETA] e resuma o perfil.
+- Entre 60 e 90 palavras, em português do Brasil, em segunda pessoa ("você").
+- Tom editorial de revista de moda: caloroso, elegante, humano, sem exageros nem clichês.
+- Um único parágrafo corrido, sem título, sem listas, sem aspas, sem emojis.
+- Diferencie claramente o que ela quer transmitir aos outros e como ela quer se sentir; não misture os dois.
+- Diferencie o estilo de hoje da direção desejada.
+- Não mencione tamanho, medidas, corpo, formato de corpo, peso ou aparência física.
+- Não mencione tecnologia, inteligência artificial, algoritmos ou o próprio texto.
+- Não cite números de escalas; traduza-os em linguagem natural.
 
-Informações que você precisa coletar:
-1. Profissão/atividade e rotina
-2. Tipos de compromissos profissionais
-3. 3 peças que usa quando não quer pensar
-4. Cores preferidas e cores que evita
-5. Como gosta de ser percebida profissionalmente
-6. Peças que nunca usa (vetos)
-7. Tamanho de roupa e calçado
-`;
+Responda apenas com o parágrafo.`;
+}

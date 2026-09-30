@@ -1,9 +1,31 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sun, Cloud, CloudRain, CloudSnow, Wind, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import {
+  Sun,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  Loader2,
+  ArrowRight,
+  Briefcase,
+  Users,
+  Handshake,
+  Presentation,
+  CalendarHeart,
+  Shirt,
+  Video,
+  Plane,
+  Coffee,
+  type LucideIcon,
+} from 'lucide-react';
 import { OCASIOES } from '@/lib/constants';
 import { createClient } from '@/lib/supabase-client';
+import { ocasioesDoPerfil, perfilAtivo } from '@/lib/retrato';
+import { aplicarFiltrosDuros, type PecaEntrada } from '@/lib/perfil-looks';
+import { atributosDaFicha } from '@/lib/ficha-ia';
+import { ConviteConta } from '@/components/conta/ConviteConta';
 
 type WeatherData = {
   temp: number;
@@ -14,8 +36,20 @@ type WeatherData = {
   condition: string;
 };
 
+const OCASIAO_ICONS: Record<string, LucideIcon> = {
+  trabalho: Briefcase,
+  reuniao: Users,
+  networking: Handshake,
+  palestra: Presentation,
+  evento: CalendarHeart,
+  casual: Shirt,
+  gravacao: Video,
+  viagem: Plane,
+  encontro: Coffee,
+};
+
 function WeatherIcon({ description }: { description: string }) {
-  const weatherMap: [string, typeof Sun][] = [
+  const weatherMap: [string, LucideIcon][] = [
     ['sol', Sun],
     ['limpo', Sun],
     ['nublado', Cloud],
@@ -23,10 +57,19 @@ function WeatherIcon({ description }: { description: string }) {
     ['tempestade', CloudRain],
     ['neve', CloudSnow],
   ];
-  const Icon = weatherMap.find(
-    ([key]) => description.toLowerCase().includes(key)
-  )?.[1] || Sun;
-  return <Icon size={20} />;
+  const Icon = weatherMap.find(([key]) => description.toLowerCase().includes(key))?.[1] || Sun;
+  return <Icon size={26} strokeWidth={1.25} className="text-gold" />;
+}
+
+/** Ocasiões do perfil primeiro (na ordem dos contextos), depois as demais; nenhuma é removida. */
+function ordenarOcasioes(prioritarias: string[]): [string, string][] {
+  const todas = Object.entries(OCASIOES) as [string, string][];
+  if (!prioritarias.length) return todas;
+  const rank = (k: string) => {
+    const i = prioritarias.indexOf(k);
+    return i === -1 ? prioritarias.length + todas.findIndex(([x]) => x === k) : i;
+  };
+  return [...todas].sort((a, b) => rank(a[0]) - rank(b[0]));
 }
 
 function getGreeting() {
@@ -36,14 +79,21 @@ function getGreeting() {
   return 'Boa noite';
 }
 
+function formatToday() {
+  const s = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default function InicioPage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [selectedOcasiao, setSelectedOcasiao] = useState<string | null>(null);
-  const [stats, setStats] = useState({ pecas: 0, looks: 0, favoritos: 0 });
+  const [stats, setStats] = useState({ pecas: 0, looks: 0, usados: 0 });
   const [sugestao, setSugestao] = useState<string>('');
+  const [sugestaoFoto, setSugestaoFoto] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
   const [userCity, setUserCity] = useState<string>('');
+  const [ocasioesPrioritarias, setOcasioesPrioritarias] = useState<string[]>([]);
 
   // Load real stats from Supabase
   useEffect(() => {
@@ -55,7 +105,7 @@ export default function InicioPage() {
       // Get user's name and city from profiles table
       const { data: profile } = await supabase
         .from('profiles')
-        .select('nome, cidade')
+        .select('nome, cidade, perfil_estilo')
         .eq('id', user.id)
         .single();
       if (profile?.nome) {
@@ -64,8 +114,10 @@ export default function InicioPage() {
       if (profile?.cidade) {
         setUserCity(profile.cidade);
       }
+      // Retrato confirmado: ocasiões da vida real dela aparecem primeiro
+      setOcasioesPrioritarias(ocasioesDoPerfil(perfilAtivo(profile?.perfil_estilo)));
 
-      const [pecasRes, looksRes, favRes] = await Promise.all([
+      const [pecasRes, looksRes, usadosRes] = await Promise.all([
         supabase.from('pecas').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('looks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('looks').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('decisao', 'usei'),
@@ -74,7 +126,7 @@ export default function InicioPage() {
       setStats({
         pecas: pecasRes.count ?? 0,
         looks: looksRes.count ?? 0,
-        favoritos: favRes.count ?? 0,
+        usados: usadosRes.count ?? 0,
       });
 
       // Smart suggestion based on real data
@@ -82,24 +134,47 @@ export default function InicioPage() {
       const totalLooks = looksRes.count ?? 0;
 
       if (totalPecas === 0) {
-        setSugestao('Comece adicionando suas peças no armário! Fotografe suas roupas e a IA vai catalogar automaticamente.');
-      } else if (totalPecas < 5) {
-        setSugestao(`Você tem ${totalPecas} peças. Adicione mais para ter looks mais variados — a mágica começa com 10+ peças.`);
+        setSugestao('Comece fotografando suas peças. O Cabidê organiza seu armário para você.');
+        return;
+      }
+
+      // Foto editorial: a peça mais recente do armário que respeita os limites do Retrato
+      const { data: recentes } = await supabase
+        .from('pecas')
+        .select('id, nome, imagem_url, categoria, subcategoria, cor, comprimento, material, como_me_queda, ficha_ia')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      const recenteOk = aplicarFiltrosDuros(
+        ((recentes ?? []).map((p) => ({ ...p, atributos: atributosDaFicha(p.ficha_ia) })) as (PecaEntrada & { imagem_url: string | null })[]),
+        perfilAtivo(profile?.perfil_estilo)
+      ).aptas.find((p) => (p as PecaEntrada & { imagem_url: string | null }).imagem_url) as
+        | (PecaEntrada & { imagem_url: string | null })
+        | undefined;
+      if (recenteOk?.imagem_url) setSugestaoFoto(recenteOk.imagem_url);
+
+      if (totalPecas < 5) {
+        setSugestao(`Você tem ${totalPecas} peças. Com 10 ou mais, seus looks ficam muito mais variados.`);
       } else if (totalLooks === 0) {
-        setSugestao('Seu armário está pronto! Que tal gerar seus primeiros looks? Escolha uma ocasião abaixo.');
+        setSugestao('Seu armário está pronto. Que tal criar seus primeiros looks?');
       } else {
-        // Check for forgotten pieces
+        // Check for forgotten pieces — respeitando os limites do Retrato confirmado
         const { data: forgotten } = await supabase
           .from('pecas')
-          .select('nome')
+          .select('id, nome, imagem_url, categoria, subcategoria, cor, comprimento, material, como_me_queda, ficha_ia')
           .eq('user_id', user.id)
           .eq('disponivel', true)
           .lt('vezes_usada', 2)
           .order('vezes_usada')
-          .limit(1);
+          .limit(10);
 
-        if (forgotten && forgotten.length > 0) {
-          setSugestao(`Que tal usar "${forgotten[0].nome}"? Essa peça está esquecida no armário — vamos dar vida a ela!`);
+        const candidatas = (forgotten ?? []).map((p) => ({ ...p, atributos: atributosDaFicha(p.ficha_ia) })) as (PecaEntrada & { imagem_url: string | null })[];
+        const escolhida = aplicarFiltrosDuros(candidatas, perfilAtivo(profile?.perfil_estilo)).aptas[0] as
+          | (PecaEntrada & { imagem_url: string | null })
+          | undefined;
+        if (escolhida) {
+          setSugestao(`Que tal dar vida nova a “${escolhida.nome}”?`);
+          if (escolhida.imagem_url) setSugestaoFoto(escolhida.imagem_url);
         }
       }
     }
@@ -119,232 +194,136 @@ export default function InicioPage() {
       .finally(() => setLoadingWeather(false));
   }, [userCity]);
 
+  const sugestaoTexto =
+    sugestao ||
+    (weather && weather.temp < 20
+      ? 'Dia fresco pede camadas leves e sofisticadas.'
+      : 'Looks leves e sofisticados para um dia agradável.');
+  const sugestaoHref = stats.pecas === 0 ? '/armario' : '/looks';
+
   return (
-    <div className="pt-8">
+    <div className="pt-8 pb-4">
       {/* Header */}
-      <header className="mb-6">
-        <h1
-          className="leading-tight"
-          style={{
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
-            fontSize: '1.75rem',
-            fontWeight: 500,
-            color: '#2D2A26',
-          }}
-        >
-          {getGreeting()}{userName ? `, ${userName}` : ''} ✨
-        </h1>
-        <p
-          className="mt-1"
-          style={{ fontSize: '0.8125rem', color: '#6B6560' }}
-        >
-          Sua estilista pessoal com IA
-        </p>
+      <header className="flex items-start justify-between gap-4 mb-8">
+        <div>
+          <h1 className="display text-[2.25rem]">
+            {getGreeting()},
+            {userName && (
+              <>
+                <br />
+                {userName}
+              </>
+            )}
+          </h1>
+          <p className="text-[13px] text-muted mt-2">
+            {userCity || weather?.city || ''}
+            {(userCity || weather?.city) && <br />}
+            {formatToday()}
+          </p>
+        </div>
+
+        <div className="text-right pt-1 min-w-20">
+          {loadingWeather ? (
+            <Loader2 size={18} className="animate-spin text-muted ml-auto" />
+          ) : weather ? (
+            <>
+              <div className="flex items-center justify-end gap-2">
+                <WeatherIcon description={weather.description} />
+                <span className="display text-[1.75rem]">{weather.temp}°C</span>
+              </div>
+              <p className="text-xs text-muted mt-0.5 capitalize">{weather.description}</p>
+            </>
+          ) : (
+            <p className="text-xs text-muted">Clima indisponível</p>
+          )}
+        </div>
       </header>
 
-      {/* Weather Card */}
-      <div
-        className="rounded-2xl p-4 mb-6"
-        style={{
-          background: '#FFFFFF',
-          border: '1px solid #E8E4DE',
-          boxShadow: '0 2px 8px rgba(45,42,38,0.05)',
-        }}
-      >
-        {loadingWeather ? (
-          <div className="flex items-center gap-2" style={{ color: '#9A958F' }}>
-            <Loader2 size={18} className="animate-spin" />
-            <span style={{ fontSize: '0.875rem' }}>Carregando clima...</span>
-          </div>
-        ) : weather ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: '#F0ECF7', color: '#5E4F72' }}
-              >
-                <WeatherIcon description={weather.description} />
-              </div>
-              <div>
-                <p style={{ fontWeight: 600, fontSize: '1.125rem', color: '#2D2A26' }}>
-                  {weather.temp}°C
-                </p>
-                <p style={{ color: '#6B6560', fontSize: '0.8125rem' }}>
-                  {weather.city}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p style={{ fontSize: '0.875rem', color: '#2D2A26' }}>
-                {weather.description}
-              </p>
-              {weather.wind && (
-                <p
-                  className="flex items-center gap-1 justify-end"
-                  style={{ fontSize: '0.75rem', color: '#9A958F' }}
-                >
-                  <Wind size={12} /> {weather.wind}
-                </p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <p style={{ fontSize: '0.875rem', color: '#9A958F' }}>
-            Clima indisponível
-          </p>
-        )}
-      </div>
+      {/* Convite discreto para quem está experimentando e já investiu no Cabidê */}
+      <ConviteConta />
 
-      {/* AI Suggestion Card */}
-      <div
-        className="rounded-2xl p-4 mb-6 relative overflow-hidden"
-        style={{
-          background: '#F0ECF7',
-          border: '1px solid #C4B8E9',
-          boxShadow: '0 4px 16px rgba(196,184,233,0.20)',
-        }}
-      >
-        {/* Gradient bar */}
-        <div
-          className="absolute top-0 left-0 right-0"
-          style={{
-            height: '3px',
-            background: 'linear-gradient(90deg, #C4B8E9 0%, #7A6B8E 50%, #F5E4A8 100%)',
-          }}
-        />
-        <div className="flex items-center gap-2 mb-2">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5Z"
-              stroke="#5E4F72"
-              strokeWidth="1.2"
-              strokeLinejoin="round"
+      {/* Sugestão do dia */}
+      <section className="mb-10">
+        <div className="rule mb-5" />
+        <p className="eyebrow mb-4">Sugestão do dia</p>
+        <Link href={sugestaoHref} className="grid grid-cols-[1fr_auto] gap-5 items-stretch group">
+          <div className="flex flex-col">
+            <p className="display text-[1.5rem] leading-snug">{sugestaoTexto}</p>
+            <ArrowRight
+              size={22}
+              strokeWidth={1.25}
+              className="mt-auto pt-4 box-content transition-transform group-hover:translate-x-1"
             />
-          </svg>
-          <span
-            style={{
-              fontSize: '0.6875rem',
-              fontWeight: 600,
-              color: '#5E4F72',
-              letterSpacing: '0.03em',
-            }}
-          >
-            Sugestão da estilista
-          </span>
-        </div>
-        <p style={{ fontSize: '0.875rem', color: '#2D2A26', lineHeight: 1.5 }}>
-          {sugestao || (weather && weather.temp < 20
-            ? 'Dia fresco — que tal um look com camadas? Separei algumas opções pra você.'
-            : 'Dia agradável — looks leves e frescos vão funcionar muito bem hoje.')}
-        </p>
-      </div>
-
-      {/* Main Question */}
-      <section className="mb-6">
-        <h2
-          style={{
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
-            fontSize: '1.25rem',
-            fontWeight: 600,
-            color: '#2D2A26',
-            marginBottom: '1rem',
-          }}
-        >
-          O que você vai fazer hoje?
-        </h2>
-
-        <div className="grid grid-cols-2 gap-3">
-          {Object.entries(OCASIOES).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setSelectedOcasiao(
-                selectedOcasiao === key ? null : key
+          </div>
+          <div className="relative w-36">
+            <div className="aspect-[3/4] w-full bg-surface-alt overflow-hidden rounded-[4px]">
+              {sugestaoFoto && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={sugestaoFoto} alt="" className="w-full h-full object-cover" />
               )}
-              className="rounded-xl p-3 text-left text-sm transition-all"
-              style={{
-                border: selectedOcasiao === key
-                  ? '1.5px solid #5E4F72'
-                  : '1.5px solid #E8E4DE',
-                background: selectedOcasiao === key
-                  ? '#F0ECF7'
-                  : '#FFFFFF',
-                color: selectedOcasiao === key
-                  ? '#5E4F72'
-                  : '#2D2A26',
-                fontWeight: selectedOcasiao === key ? 500 : 400,
-                boxShadow: selectedOcasiao === key
-                  ? '0 0 0 3px rgba(196,184,233,0.15)'
-                  : 'none',
-              }}
+            </div>
+            <p
+              className="absolute -bottom-7 -left-4 rotate-[-6deg] text-[1.2rem] leading-none text-gold-text"
+              style={{ fontFamily: 'var(--font-hand)' }}
             >
-              {label}
-            </button>
-          ))}
+              menos complicação,
+              <br />
+              <span className="pl-6">mais você.</span>
+            </p>
+          </div>
+        </Link>
+      </section>
+
+      {/* Ocasião */}
+      <section className="mb-6 mt-12">
+        <p className="eyebrow mb-4">O que você vai fazer hoje?</p>
+
+        <div className="grid grid-cols-2 gap-2">
+          {ordenarOcasioes(ocasioesPrioritarias).map(([key, label]) => {
+            const Icon = OCASIAO_ICONS[key] || Shirt;
+            const selected = selectedOcasiao === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setSelectedOcasiao(selected ? null : key)}
+                className="option text-[13px]"
+              >
+                <Icon size={16} strokeWidth={1.5} className="flex-shrink-0" />
+                <span className="leading-tight">{label}</span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
-      {/* CTA Button */}
+      {/* CTA */}
       <button
+        type="button"
         disabled={!selectedOcasiao}
         onClick={() => {
           if (selectedOcasiao) {
             window.location.href = `/looks?ocasiao=${selectedOcasiao}&temp=${weather?.temp ?? ''}`;
           }
         }}
-        className="w-full py-4 text-base font-medium transition-all active:scale-[0.98]"
-        style={{
-          background: selectedOcasiao ? '#5E4F72' : '#D5D0DC',
-          color: selectedOcasiao ? '#FDFBF7' : '#9E97A8',
-          borderRadius: '9999px',
-          border: 'none',
-          cursor: selectedOcasiao ? 'pointer' : 'not-allowed',
-          fontFamily: "'DM Sans', sans-serif",
-        }}
+        className="btn btn-primary w-full"
       >
-        ✦ Criar meus looks
+        Criar meus looks
       </button>
 
-      {/* Quick Stats */}
-      <div className="mt-8 grid grid-cols-3 gap-3 text-center">
-        <div className="rounded-xl p-3" style={{ background: '#FAF6EE' }}>
-          <p
-            style={{
-              fontFamily: "'Cormorant Garamond', Georgia, serif",
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              color: '#5E4F72',
-            }}
-          >
-            {stats.pecas}
-          </p>
-          <p style={{ fontSize: '0.6875rem', color: '#6B6560' }}>Peças</p>
-        </div>
-        <div className="rounded-xl p-3" style={{ background: '#FAF6EE' }}>
-          <p
-            style={{
-              fontFamily: "'Cormorant Garamond', Georgia, serif",
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              color: '#5E4F72',
-            }}
-          >
-            {stats.looks}
-          </p>
-          <p style={{ fontSize: '0.6875rem', color: '#6B6560' }}>Looks criados</p>
-        </div>
-        <div className="rounded-xl p-3" style={{ background: '#FAF6EE' }}>
-          <p
-            style={{
-              fontFamily: "'Cormorant Garamond', Georgia, serif",
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              color: '#5E4F72',
-            }}
-          >
-            {stats.favoritos}
-          </p>
-          <p style={{ fontSize: '0.6875rem', color: '#6B6560' }}>Favoritos</p>
-        </div>
+      {/* Números */}
+      <div className="mt-10 grid grid-cols-3 border-y border-border">
+        {[
+          { value: stats.pecas, label: 'Peças' },
+          { value: stats.looks, label: 'Looks criados' },
+          { value: stats.usados, label: 'Looks usados' },
+        ].map((s, i) => (
+          <div key={s.label} className={`py-4 text-center ${i > 0 ? 'border-l border-border' : ''}`}>
+            <p className="display text-[1.75rem] leading-none">{s.value}</p>
+            <p className="text-[11px] text-muted mt-1.5">{s.label}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

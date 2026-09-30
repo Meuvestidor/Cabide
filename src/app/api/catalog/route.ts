@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { MODEL_CATALOGO } from '@/lib/models';
 import { CATALOG_PROMPT } from '@/lib/prompts';
 
 const anthropic = new Anthropic({
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
         };
 
     const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20250901',
+      model: MODEL_CATALOGO,
       max_tokens: 1024,
       messages: [
         {

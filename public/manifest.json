@@ -1,11 +1,11 @@
 {
-  "name": "Meu Vestidor",
-  "short_name": "Vestidor",
-  "description": "Sua estilista pessoal com IA. Digitalize seu armário e receba sugestões de looks.",
+  "name": "Cabidê",
+  "short_name": "Cabidê",
+  "description": "Seu estilo, mais você. Organize seu armário e descubra looks que fazem sentido para a sua vida.",
   "start_url": "/inicio",
   "display": "standalone",
-  "background_color": "#FAFAF8",
-  "theme_color": "#8B4A2B",
+  "background_color": "#FAF8F3",
+  "theme_color": "#2E3D32",
   "orientation": "portrait",
   "icons": [
     {
