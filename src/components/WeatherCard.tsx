@@ -33,7 +33,7 @@ export function WeatherCard({ mode = 'current', onWeatherLoad, city }: {
         const data: WeatherData = await res.json();
         setWeather(data);
         if (onWeatherLoad && data.tomorrow) {
-          onWeatherLoad({ temp: data.current.temp, max: data.tomorrow.max, min: data.tomorrow.min, condition: data.tomorrow.description });
+          onWeatherLoad({ temp: data.current.temp, max: data.tomorrow.max, min: data.tomorrow.min, condition: data.current.description });
         }
       } catch { setError(true); }
       setLoading(false);

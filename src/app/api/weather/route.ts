@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { descricaoClima } from '@/lib/clima';
 
 // Open-Meteo — FREE, no API key, no registration
 // https://open-meteo.com/en/docs
@@ -8,36 +9,9 @@ const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 // Default coordinates (Curitiba) — fallback when no city is provided
 const DEFAULT_CITY = { lat: -25.4284, lon: -49.2733, name: 'Curitiba', tz: 'America/Sao_Paulo' };
 
-// WMO Weather codes → descriptions in Portuguese + condition slug
-const WMO_CODES: Record<number, { desc: string; condition: string }> = {
-  0: { desc: 'Céu limpo', condition: 'clear_day' },
-  1: { desc: 'Predominantemente limpo', condition: 'clear_day' },
-  2: { desc: 'Parcialmente nublado', condition: 'cloudly_day' },
-  3: { desc: 'Nublado', condition: 'cloud' },
-  45: { desc: 'Nevoeiro', condition: 'fog' },
-  48: { desc: 'Nevoeiro com geada', condition: 'fog' },
-  51: { desc: 'Chuvisco leve', condition: 'rain' },
-  53: { desc: 'Chuvisco moderado', condition: 'rain' },
-  55: { desc: 'Chuvisco forte', condition: 'rain' },
-  61: { desc: 'Chuva leve', condition: 'rain' },
-  63: { desc: 'Chuva moderada', condition: 'rain' },
-  65: { desc: 'Chuva forte', condition: 'rain' },
-  71: { desc: 'Neve leve', condition: 'snow' },
-  73: { desc: 'Neve moderada', condition: 'snow' },
-  75: { desc: 'Neve forte', condition: 'snow' },
-  80: { desc: 'Pancadas de chuva leves', condition: 'rain' },
-  81: { desc: 'Pancadas de chuva moderadas', condition: 'rain' },
-  82: { desc: 'Pancadas de chuva fortes', condition: 'rain' },
-  95: { desc: 'Tempestade', condition: 'storm' },
-  96: { desc: 'Tempestade com granizo leve', condition: 'storm' },
-  99: { desc: 'Tempestade com granizo forte', condition: 'storm' },
-};
-
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-function getWeatherInfo(code: number) {
-  return WMO_CODES[code] || { desc: 'Indefinido', condition: 'cloud' };
-}
+const getWeatherInfo = descricaoClima;
 
 // Geocode a city name using Open-Meteo (free, no API key)
 async function geocodeCity(cityName: string): Promise<{ lat: number; lon: number; name: string; tz: string } | null> {
@@ -90,10 +64,11 @@ export async function GET(request: NextRequest) {
       }
     } else if (cityParam) {
       const geocoded = await geocodeCity(cityParam);
-      if (geocoded) {
-        location = geocoded;
+      // Cidade não encontrada: melhor "clima indisponível" do que o clima de outra cidade.
+      if (!geocoded) {
+        return NextResponse.json({ error: true, code: 'CIDADE_NAO_ENCONTRADA' }, { status: 503 });
       }
-      // If geocoding fails, keep default (Curitiba)
+      location = geocoded;
     }
 
     const res = await fetch(
@@ -110,6 +85,9 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
+    if (typeof data.current?.temperature_2m !== 'number') {
+      throw new Error('Open-Meteo sem temperatura atual');
+    }
 
     // Current weather
     const currentCode = data.current?.weather_code ?? 2;
@@ -122,7 +100,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       current: {
-        temp: Math.round(data.current?.temperature_2m ?? 18),
+        temp: Math.round(data.current.temperature_2m),
         description: currentInfo.desc,
         condition: currentInfo.condition,
         humidity: data.current?.relative_humidity_2m ?? null,
@@ -143,29 +121,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Weather API error:', error);
-
-    // Fallback estático para que a demo nunca falhe
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    return NextResponse.json({
-      current: {
-        temp: 18,
-        description: 'Parcialmente nublado',
-        condition: 'cloudly_day',
-        humidity: 72,
-        wind: '12 km/h',
-        city: 'Curitiba',
-      },
-      tomorrow: {
-        max: 22,
-        min: 14,
-        description: 'Sol com nuvens',
-        condition: 'cloudly_day',
-        precipitation: 20,
-        weekday: WEEKDAYS[tomorrow.getDay()],
-      },
-      source: 'fallback',
-    });
+    // Sem previsão, a interface mostra "Clima indisponível" — nunca um clima inventado.
+    return NextResponse.json({ error: true, code: 'CLIMA_INDISPONIVEL' }, { status: 503 });
   }
 }

@@ -47,6 +47,25 @@ interface GeneratedLook {
 
 type Step = 'select' | 'generating' | 'results';
 
+type AjusteClima = -1 | 0 | 1;
+
+/** Clima que o servidor considerou para montar os looks. */
+interface ClimaUsado {
+  resumo: string;
+  faixa: string;
+  min: number;
+  max: number;
+  ajuste: AjusteClima;
+  fonte: 'previsao' | 'informada';
+  cidade: string | null;
+}
+
+const AJUSTES_CLIMA: { valor: AjusteClima; label: string }[] = [
+  { valor: -1, label: 'Mais frio' },
+  { valor: 0, label: 'Como previsto' },
+  { valor: 1, label: 'Mais quente' },
+];
+
 type ErroLooks = {
   titulo: string;
   texto: string;
@@ -298,6 +317,9 @@ function LooksPage() {
   const [erro, setErro] = useState<ErroLooks | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
   const [fixedPecas, setFixedPecas] = useState<Set<string>>(new Set());
+  // A usuária está na rua e sabe melhor que a previsão: desloca a faixa do dia.
+  const [ajusteClima, setAjusteClima] = useState<AjusteClima>(0);
+  const [climaUsado, setClimaUsado] = useState<ClimaUsado | null>(null);
   const [feedbackFor, setFeedbackFor] = useState<LookTipo | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userCity, setUserCity] = useState<string>('');
@@ -357,7 +379,7 @@ function LooksPage() {
     [userCity]
   );
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = useCallback(async (ajuste: AjusteClima = ajusteClima) => {
     if (!ocasiao || pecas.length === 0) return;
 
     setStep('generating');
@@ -403,6 +425,7 @@ function LooksPage() {
           pecas: pecasMinimal,
           formalidadeAlvo: 3,
           pecasFixadas: Array.from(fixedPecas),
+          ajusteClima: ajuste,
         }),
       });
 
@@ -416,12 +439,19 @@ function LooksPage() {
 
       setLooks(json.data.looks as GeneratedLook[]);
       setAvisos(Array.isArray(json.data.avisos) ? json.data.avisos : []);
+      setClimaUsado(json.data.clima ?? null);
       setStep('results');
     } catch {
       setErro(erroHumano('CONEXAO', null));
       setStep('select');
     }
-  }, [ocasiao, pecas, weather, perfilEstilo, fixedPecas]);
+  }, [ocasiao, pecas, weather, perfilEstilo, fixedPecas, ajusteClima]);
+
+  // Refaz os looks com o clima ajustado pela usuária (nova geração).
+  const handleAjustarClima = (ajuste: AjusteClima) => {
+    setAjusteClima(ajuste);
+    handleGenerate(ajuste);
+  };
 
   const handleDecision = useCallback(
     async (tipo: LookTipo, decisao: string) => {
@@ -568,8 +598,22 @@ function LooksPage() {
           </button>
         </div>
         <p className="text-[13px] text-muted mb-6">
-          {OCASIOES[ocasiao as keyof typeof OCASIOES]} · {weather?.temp ?? '—'}°C · {pecas.length} peças
+          {OCASIOES[ocasiao as keyof typeof OCASIOES]} · {climaUsado ? climaUsado.resumo : `${weather?.temp ?? '—'}°C`} · {pecas.length} peças
         </p>
+        {climaUsado && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-6 -mt-4 text-[12px] text-muted">
+            <span>O clima não bate com o que você sente?</span>
+            {climaUsado.ajuste !== -1 && (
+              <button type="button" onClick={() => handleAjustarClima(-1)} className="link font-semibold">Está mais frio</button>
+            )}
+            {climaUsado.ajuste !== 1 && (
+              <button type="button" onClick={() => handleAjustarClima(1)} className="link font-semibold">Está mais quente</button>
+            )}
+            {climaUsado.ajuste !== 0 && (
+              <button type="button" onClick={() => handleAjustarClima(0)} className="link font-semibold">Como previsto</button>
+            )}
+          </div>
+        )}
 
         {avisos.length > 0 && (
           <div className="mb-6 p-3 border-l-2 border-gold bg-surface-alt">
@@ -611,6 +655,22 @@ function LooksPage() {
 
       <div className="mb-8">
         <WeatherCard mode="current" city={userCity || undefined} onWeatherLoad={handleWeatherLoad} />
+        <div className="mt-3">
+          <p className="text-xs text-muted mb-2">Como está aí fora?</p>
+          <div className="grid grid-cols-3 gap-2">
+            {AJUSTES_CLIMA.map(({ valor, label }) => (
+              <button
+                key={valor}
+                type="button"
+                aria-pressed={ajusteClima === valor}
+                onClick={() => setAjusteClima(valor)}
+                className="option text-[12px]"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Occasion selector */}
@@ -633,7 +693,7 @@ function LooksPage() {
               </button>
             )}
             {erro.acoes.includes('tentar') && (
-              <button type="button" onClick={handleGenerate} className="btn btn-outline min-h-10 text-[13px]">
+              <button type="button" onClick={() => handleGenerate()} className="btn btn-outline min-h-10 text-[13px]">
                 Tentar de novo
               </button>
             )}
@@ -693,7 +753,7 @@ function LooksPage() {
       )}
 
       {/* Generate button */}
-      <button type="button" onClick={handleGenerate} disabled={!ocasiao} className="btn btn-primary w-full">
+      <button type="button" onClick={() => handleGenerate()} disabled={!ocasiao} className="btn btn-primary w-full">
         Criar meus looks
         {ocasiao && <ArrowRight size={16} />}
       </button>

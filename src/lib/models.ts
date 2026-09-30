@@ -6,5 +6,11 @@
 /** Geração de looks e texto do Retrato. */
 export const MODEL_STYLING = 'claude-sonnet-4-6';
 
+/**
+ * Geração de looks. Por padrão o mesmo modelo de styling; CABIDE_MODEL_LOOKS permite
+ * testar um modelo mais barato (ex.: claude-haiku-4-5-20251001) sem mudar código.
+ */
+export const MODEL_LOOKS = process.env.CABIDE_MODEL_LOOKS || MODEL_STYLING;
+
 /** Catalogação de peças por foto (visão). */
 export const MODEL_CATALOGO = 'claude-haiku-4-5-20251001';
