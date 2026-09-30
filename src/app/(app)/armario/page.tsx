@@ -15,6 +15,7 @@ import {
 import { CATEGORIAS, FORMALIDADE_LABELS, OCASIOES } from '@/lib/constants';
 import { PieceDetail } from '@/components/PieceDetail';
 import { CategoriaSelector } from '@/components/armario/CategoriaSelector';
+import { TamanhoPecaPicker } from '@/components/armario/TamanhoPecaPicker';
 import type { Categoria } from '@/types/database';
 import { prepararFoto } from '@/lib/imagem';
 import { mergeFichaIa, sanitizarAtributos, sanitizarTamanho } from '@/lib/ficha-ia';
@@ -76,6 +77,27 @@ interface CatalogResult {
   duvidas: string | null;
 }
 
+/** Máximo de fotos por operação na galeria. */
+const MAX_FOTOS_POR_VEZ = 10;
+
+interface ItemFila {
+  id: string;
+  original: File;
+  file?: File;
+  preview?: string;
+  status: 'aguardando' | 'analisando' | 'pronta';
+  result?: CatalogResult;
+}
+
+function lerComoDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onloadend = () => (typeof r.result === 'string' ? resolve(r.result) : reject(new Error('leitura')));
+    r.onerror = () => reject(new Error('leitura'));
+    r.readAsDataURL(file);
+  });
+}
+
 function PieceCard({ peca, looksCount, onTap }: { peca: PecaRow; looksCount: number; onTap: () => void }) {
   return (
     <button onClick={onTap} className="text-left w-full group">
@@ -112,17 +134,80 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving }: {
-  data: CatalogResult; imagePreview: string; onConfirm: () => void; onCancel: () => void; saving: boolean;
+/** O que a usuária completou/corrigiu na ficha antes de salvar. */
+interface AjustesFicha {
+  tamanho: string | null;
+  campos: Partial<Record<CampoTexto, string>>;
+}
+type CampoTexto = 'nome' | 'subcategoria' | 'cor' | 'material' | 'marca';
+
+/** Valor que a IA marcou como não identificado ("?") ou deixou vazio. */
+const naoIdentificado = (v: string | null | undefined) => !v || v.trim() === '?';
+
+/**
+ * Campo de texto da ficha que a usuária pode completar/corrigir.
+ * Usa o mesmo tipo de edição (texto livre) que o detalhe da peça já oferece.
+ */
+function CampoCorrigivel({ label, valor, onChange, sempreCorrigivel = false }: {
+  label: string; valor: string | null; onChange: (v: string) => void; sempreCorrigivel?: boolean;
 }) {
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState(naoIdentificado(valor) ? '' : valor!);
+  const vazio = naoIdentificado(valor);
+  if (!vazio && !sempreCorrigivel) return <Field label={label}>{valor}</Field>;
+  return (
+    <Field label={label}>
+      {editando ? (
+        <div className="flex gap-2 mt-1">
+          <input
+            autoFocus
+            value={texto}
+            maxLength={60}
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && texto.trim()) { onChange(texto.trim()); setEditando(false); } }}
+            aria-label={label}
+            className="input flex-1 h-10"
+          />
+          <button type="button" disabled={!texto.trim()} onClick={() => { onChange(texto.trim()); setEditando(false); }} className="btn btn-outline h-10 min-h-10">OK</button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <span className={vazio ? 'text-muted' : ''}>{vazio ? 'Não identificado' : valor}</span>
+          <button type="button" onClick={() => setEditando(true)} className="text-[13px] font-semibold text-primary underline underline-offset-4 decoration-gold whitespace-nowrap">
+            {vazio ? `Informar ${label.toLowerCase()}` : 'Corrigir'}
+          </button>
+        </div>
+      )}
+    </Field>
+  );
+}
+
+function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving, posicao }: {
+  data: CatalogResult; imagePreview: string; onConfirm: (ajustes: AjustesFicha) => void; onCancel: () => void; saving: boolean;
+  /** "Peça 2 de 4" quando há várias fotos na operação. */
+  posicao?: { atual: number; total: number };
+}) {
+  const tamanhoIa = sanitizarTamanho(data.tamanho);
+  const [tamanho, setTamanho] = useState<string | null>(tamanhoIa);
+  const [tamanhoDefinido, setTamanhoDefinido] = useState(false); // usuária escolheu (inclui "Não informado")
+  const [escolhendoTamanho, setEscolhendoTamanho] = useState(false);
+  const [campos, setCampos] = useState<AjustesFicha['campos']>({});
+  const valor = (c: CampoTexto) => campos[c] ?? (data[c] as string | null);
+  const setCampo = (c: CampoTexto) => (v: string) => setCampos((prev) => ({ ...prev, [c]: v }));
+
+  const textoTamanho = tamanho ?? (tamanhoDefinido ? 'Não informado' : 'Tamanho não identificado');
+
   return (
     <div className="fixed inset-0 z-50 bg-foreground/40 flex items-end justify-center">
       <div className="sheet w-full max-w-lg max-h-[88dvh] overflow-y-auto">
-        <div className="sticky top-0 bg-surface border-b border-border px-4 py-3 flex items-center justify-between">
-          <button onClick={onCancel} className="w-10 h-10 flex items-center justify-center" aria-label="Cancelar">
+        <div className="sticky top-0 z-10 bg-surface border-b border-border px-4 py-3 flex items-center justify-between">
+          <button onClick={onCancel} className="w-10 h-10 flex items-center justify-center" aria-label="Descartar esta peça">
             <X size={20} className="text-muted" />
           </button>
-          <h2 className="display text-xl">Ficha da peça</h2>
+          <div className="text-center">
+            <h2 className="display text-xl">Ficha da peça</h2>
+            {posicao && posicao.total > 1 && <p className="text-[11px] text-muted">Peça {posicao.atual} de {posicao.total}</p>}
+          </div>
           <span className="w-10" />
         </div>
         <div className="px-4 pt-4">
@@ -132,21 +217,48 @@ function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving }: {
           </div>
         </div>
         <div className="px-4 py-2">
-          <Field label="Nome"><span className="display text-lg">{data.nome}</span></Field>
+          <CampoCorrigivel label="Nome" valor={valor('nome')} onChange={setCampo('nome')} />
           <div className="grid grid-cols-2 gap-x-4">
             <Field label="Categoria">{CATEGORIAS[data.categoria as Categoria] || data.categoria}</Field>
-            <Field label="Tipo">{data.subcategoria}</Field>
+            <CampoCorrigivel label="Tipo" valor={valor('subcategoria')} onChange={setCampo('subcategoria')} />
           </div>
           <div className="grid grid-cols-2 gap-x-4">
-            <Field label="Cor">
-              <span className="inline-flex items-center gap-2">
-                {data.hex && <span className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: data.hex }} />}
-                {data.cor}
-              </span>
-            </Field>
+            {naoIdentificado(valor('cor')) ? (
+              <CampoCorrigivel label="Cor" valor={valor('cor')} onChange={setCampo('cor')} />
+            ) : (
+              <Field label="Cor">
+                <span className="inline-flex items-center gap-2">
+                  {data.hex && !campos.cor && <span className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: data.hex }} />}
+                  {valor('cor')}
+                </span>
+              </Field>
+            )}
             <Field label="Formalidade">{FORMALIDADE_LABELS[data.formalidade] || `${data.formalidade}/5`}</Field>
           </div>
-          {sanitizarTamanho(data.tamanho) && <Field label="Tamanho (etiqueta)">{sanitizarTamanho(data.tamanho)}</Field>}
+
+          {/* Tamanho DA PEÇA (etiqueta) — a IA só preenche se a etiqueta estiver legível */}
+          <Field label="Tamanho">
+            <div className="flex items-center justify-between gap-3">
+              <span className={tamanho ? 'font-semibold' : 'text-muted'} data-testid="tamanho-peca">{textoTamanho}</span>
+              {!escolhendoTamanho && (
+                <button type="button" onClick={() => setEscolhendoTamanho(true)} className="text-[13px] font-semibold text-primary underline underline-offset-4 decoration-gold whitespace-nowrap">
+                  {tamanho || tamanhoDefinido ? 'Alterar' : 'Informar tamanho'}
+                </button>
+              )}
+            </div>
+            {tamanhoIa && tamanho === tamanhoIa && !tamanhoDefinido && <p className="text-[11px] text-muted mt-1">Lido na etiqueta da foto.</p>}
+            {escolhendoTamanho && (
+              <TamanhoPecaPicker
+                categoria={data.categoria}
+                valor={tamanho}
+                onEscolher={(v) => { setTamanho(v); setTamanhoDefinido(true); setEscolhendoTamanho(false); }}
+              />
+            )}
+          </Field>
+
+          <CampoCorrigivel label="Material" valor={valor('material')} onChange={setCampo('material')} sempreCorrigivel />
+          {!naoIdentificado(data.marca) && <Field label="Marca">{data.marca}</Field>}
+
           {data.ocasioes?.length > 0 && (
             <Field label="Ocasiões">
               <div className="flex flex-wrap gap-1.5 mt-1">
@@ -160,12 +272,20 @@ function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving }: {
             <div className="mt-4 p-3 border-l-2 border-warning bg-surface-alt">
               <p className="eyebrow text-warning mb-1">Pontos a confirmar</p>
               <p className="text-sm text-foreground">{data.duvidas}</p>
+              {!tamanho && !tamanhoDefinido && !escolhendoTamanho && (
+                <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-3">
+                  <span className="text-sm"><span className="font-semibold">Tamanho</span> <span className="text-muted">· Não identificado</span></span>
+                  <button type="button" onClick={() => setEscolhendoTamanho(true)} className="btn btn-outline h-9 min-h-9 px-3 text-[13px]">
+                    Informar tamanho
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
         <div className="sticky bottom-0 bg-surface border-t border-border p-4 grid grid-cols-2 gap-3">
           <button onClick={onCancel} className="btn btn-outline">Descartar</button>
-          <button onClick={onConfirm} disabled={saving} className="btn btn-primary">
+          <button onClick={() => onConfirm({ tamanho, campos })} disabled={saving} className="btn btn-primary">
             {saving ? <Loader2 size={18} className="animate-spin" /> : <><Check size={18} /> Salvar peça</>}
           </button>
         </div>
@@ -178,10 +298,14 @@ export default function ArmarioPage() {
   const [pecas, setPecas] = useState<PecaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroCategoria, setFiltroCategoria] = useState<string>('todas');
-  const [analyzing, setAnalyzing] = useState(false);
-  const [catalogResult, setCatalogResult] = useState<CatalogResult | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  // Fila da operação atual: 1 foto (câmera ou galeria) ou até 10 (galeria).
+  // Cada foto vira uma peça independente; a análise roda UMA por vez.
+  const [fila, setFila] = useState<ItemFila[]>([]);
+  const [loteTotal, setLoteTotal] = useState(0);
+  const [loteErros, setLoteErros] = useState(0);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [ajustesPendentes, setAjustesPendentes] = useState<AjustesFicha | null>(null);
+  const processandoRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeca, setSelectedPeca] = useState<PecaRow | null>(null);
@@ -226,40 +350,87 @@ export default function ArmarioPage() {
   useEffect(() => { loadPecas(); }, [loadPecas]);
 
   function abrirSeletorDeFoto() {
+    if (fila.length > 0) return; // uma operação por vez
     // No celular: escolher entre câmera e galeria. No computador: seletor de arquivos direto.
     const toque = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
     if (toque) setOrigemAberta(true);
     else galeriaInputRef.current?.click();
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const original = e.target.files?.[0];
+  // Item em revisão = o primeiro da fila, quando já analisado.
+  const atual = fila[0]?.status === 'pronta' ? fila[0] : null;
+  const catalogResult = atual?.result ?? null;
+  const imagePreview = atual?.preview ?? '';
+  const imageFile = atual?.file ?? null;
+  const analyzing = fila.some((i) => i.status === 'aguardando' || i.status === 'analisando');
+  const itemAnalisando = fila.find((i) => i.status === 'analisando') ?? fila.find((i) => i.status === 'aguardando');
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const todas = Array.from(e.target.files ?? []);
     e.target.value = '';
-    if (!original) return;
+    if (!todas.length) return;
     setOrigemAberta(false);
     setError(null);
-    if (original.type && !original.type.startsWith('image/')) {
+    setAviso(null);
+    const imagens = todas.filter((f) => !f.type || f.type.startsWith('image/'));
+    if (!imagens.length) {
       setError('Escolha uma foto (JPG, PNG ou similar).');
       return;
     }
-    setAnalyzing(true);
-    const file = await prepararFoto(original);
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
-    const b64Reader = new FileReader();
-    b64Reader.onloadend = async () => {
-      const b64 = (b64Reader.result as string).split(',')[1];
+    const selecionadas = imagens.slice(0, MAX_FOTOS_POR_VEZ);
+    if (imagens.length > MAX_FOTOS_POR_VEZ) setAviso(`Você pode adicionar até ${MAX_FOTOS_POR_VEZ} fotos por vez.`);
+    setLoteTotal(selecionadas.length);
+    setLoteErros(0);
+    setFila(selecionadas.map((original, i) => ({ id: `${Date.now()}-${i}`, original, status: 'aguardando' })));
+  }
+
+  // Processamento controlado: uma foto por vez (reduz, lê e envia para a mesma análise de sempre).
+  useEffect(() => {
+    if (processandoRef.current) return;
+    const proximo = fila.find((i) => i.status === 'aguardando');
+    if (!proximo) return;
+    processandoRef.current = true;
+    const atualizar = (patch: Partial<ItemFila>) => setFila((f) => f.map((i) => (i.id === proximo.id ? { ...i, ...patch } : i)));
+    atualizar({ status: 'analisando' });
+    (async () => {
       try {
-        const res = await fetch('/api/catalog', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64: b64, mediaType: file.type || 'image/jpeg' }) });
-        const result = await res.json();
-        if (!res.ok || result.error) { setError('Não conseguimos ler bem essa foto. Tente com mais luz ou outro ângulo.'); setAnalyzing(false); return; }
-        setCatalogResult(result.data);
-      } catch { setError('Parece que a conexão caiu. Verifique sua internet e tente de novo.'); }
-      setAnalyzing(false);
-    };
-    b64Reader.readAsDataURL(file);
+        const file = await prepararFoto(proximo.original);
+        const dataUrl = await lerComoDataUrl(file);
+        atualizar({ file, preview: dataUrl });
+        const res = await fetch('/api/catalog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: dataUrl.split(',')[1], mediaType: file.type || 'image/jpeg' }),
+        });
+        const result = await res.json().catch(() => null);
+        if (!res.ok || !result || result.error) throw new Error('catalog');
+        atualizar({ status: 'pronta', result: result.data });
+      } catch {
+        // Foto que não pôde ser lida sai da fila; as demais seguem.
+        setFila((f) => f.filter((i) => i.id !== proximo.id));
+        setLoteErros((n) => n + 1);
+      } finally {
+        processandoRef.current = false;
+        setFila((f) => [...f]); // reavalia a fila para seguir com a próxima
+      }
+    })();
+  }, [fila]);
+
+  // Fim da operação: avisa se alguma foto não pôde ser lida.
+  useEffect(() => {
+    if (fila.length === 0 && loteErros > 0) {
+      setError(
+        loteErros === 1
+          ? 'Não conseguimos ler bem uma das fotos. Tente com mais luz ou outro ângulo.'
+          : `Não conseguimos ler bem ${loteErros} fotos. Tente com mais luz ou outro ângulo.`
+      );
+      setLoteErros(0);
+    }
+  }, [fila.length, loteErros]);
+
+  function proximaPeca() {
+    setAjustesPendentes(null);
+    setFila((f) => f.slice(1));
   }
 
   function checkForDuplicate(result: CatalogResult): PecaRow | null {
@@ -276,19 +447,23 @@ export default function ArmarioPage() {
     return null;
   }
 
-  function handlePreSave() {
+  function handlePreSave(ajustes: AjustesFicha) {
     if (!catalogResult) return;
-    const dupe = checkForDuplicate(catalogResult);
+    setAjustesPendentes(ajustes);
+    const dupe = checkForDuplicate({ ...catalogResult, ...ajustes.campos });
     if (dupe) {
       setDuplicateWarning(dupe);
     } else {
-      handleConfirmSave();
+      handleConfirmSave(ajustes);
     }
   }
 
-  async function handleConfirmSave() {
+  async function handleConfirmSave(ajustes: AjustesFicha | null = ajustesPendentes) {
     setDuplicateWarning(null);
     if (!catalogResult || !imageFile) return;
+    // Correções da usuária têm prioridade sobre o que a IA leu.
+    const ficha = { ...catalogResult, ...(ajustes?.campos ?? {}) };
+    const tamanhoFinal = ajustes ? sanitizarTamanho(ajustes.tamanho) : sanitizarTamanho(catalogResult.tamanho);
     setSaving(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -299,16 +474,16 @@ export default function ArmarioPage() {
     if (uErr) { setError('Não conseguimos salvar a foto agora. Tente novamente.'); setSaving(false); return; }
     const { data: { publicUrl } } = supabase.storage.from('pecas').getPublicUrl(fname);
     const { error: iErr } = await supabase.from('pecas').insert({
-      user_id: user.id, nome: catalogResult.nome, categoria: catalogResult.categoria,
-      subcategoria: catalogResult.subcategoria, cor: catalogResult.cor, hex: catalogResult.hex,
-      formalidade: catalogResult.formalidade, protagonismo: catalogResult.protagonismo,
-      temporadas: catalogResult.temporadas, temperatura_min: catalogResult.temperatura_min,
-      temperatura_max: catalogResult.temperatura_max, ocasioes: catalogResult.ocasioes,
-      estilos: catalogResult.estilos, estado: catalogResult.estado,
-      comprimento: catalogResult.comprimento, material: catalogResult.material,
-      marca: catalogResult.marca, imagem_url: publicUrl,
-      tamanho: sanitizarTamanho(catalogResult.tamanho),
-      // Merge compatível: preserva a ficha original e só acrescenta atributos válidos
+      user_id: user.id, nome: ficha.nome, categoria: ficha.categoria,
+      subcategoria: ficha.subcategoria, cor: ficha.cor, hex: ficha.hex,
+      formalidade: ficha.formalidade, protagonismo: ficha.protagonismo,
+      temporadas: ficha.temporadas, temperatura_min: ficha.temperatura_min,
+      temperatura_max: ficha.temperatura_max, ocasioes: ficha.ocasioes,
+      estilos: ficha.estilos, estado: ficha.estado,
+      comprimento: ficha.comprimento, material: ficha.material,
+      marca: ficha.marca, imagem_url: publicUrl,
+      tamanho: tamanhoFinal,
+      // Merge compatível: preserva a ficha original da IA e só acrescenta atributos válidos
       ficha_ia: mergeFichaIa(null, {
         ...catalogResult,
         estampa: undefined, salto: undefined, caimento: undefined, detalhes: undefined,
@@ -318,7 +493,8 @@ export default function ArmarioPage() {
       revisar: !!catalogResult.duvidas,
     });
     if (iErr) { setError('Não conseguimos salvar a peça agora. Tente novamente.'); setSaving(false); return; }
-    setCatalogResult(null); setImagePreview(''); setImageFile(null); setSaving(false);
+    setSaving(false);
+    proximaPeca();
     loadPecas();
   }
 
@@ -335,7 +511,7 @@ export default function ArmarioPage() {
         </div>
         <button
           onClick={abrirSeletorDeFoto}
-          disabled={analyzing}
+          disabled={fila.length > 0}
           aria-label="Adicionar peça"
           className="w-11 h-11 rounded-[4px] bg-primary text-background flex items-center justify-center hover:bg-primary-hover transition-colors disabled:opacity-50"
         >
@@ -343,7 +519,7 @@ export default function ArmarioPage() {
         </button>
         {/* Câmera traseira direto (celular) e galeria/arquivos (celular e computador). */}
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
-        <input ref={galeriaInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+        <input ref={galeriaInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
       </div>
       <div className="mb-6">
         <CategoriaSelector valor={filtroCategoria} onChange={setFiltroCategoria} categorias={CATEGORIAS} />
@@ -354,16 +530,29 @@ export default function ArmarioPage() {
           <button onClick={() => setError(null)} className="text-muted" aria-label="Fechar"><X size={16} /></button>
         </div>
       )}
-      {analyzing && (
-        <div className="mb-6 flex items-center gap-4 py-3 border-y border-border">
-          {imagePreview && (
+      {aviso && (
+        <div role="status" className="mb-4 p-3 border-l-2 border-gold bg-surface flex items-start gap-2">
+          <p className="text-sm text-foreground flex-1">{aviso}</p>
+          <button onClick={() => setAviso(null)} className="text-muted" aria-label="Fechar"><X size={16} /></button>
+        </div>
+      )}
+      {fila.length > 0 && (analyzing || !atual) && (
+        <div className="mb-6 flex items-center gap-4 py-3 border-y border-border" aria-live="polite">
+          {itemAnalisando?.preview && (
             <div className="w-14 h-[74px] overflow-hidden rounded-[2px] flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imagePreview} alt="" className="w-full h-full object-cover" />
+              <img src={itemAnalisando.preview} alt="" className="w-full h-full object-cover" />
             </div>
           )}
-          <div>
-            <p className="display italic text-lg">Lendo os detalhes da sua peça…</p>
+          <div className="flex-1 min-w-0">
+            {loteTotal > 1 && (
+              <p className="eyebrow mb-1">{loteTotal} fotos selecionadas</p>
+            )}
+            <p className="display italic text-lg">
+              {loteTotal > 1 && itemAnalisando
+                ? `Lendo a peça ${loteTotal - fila.length + fila.indexOf(itemAnalisando) + 1} de ${loteTotal}…`
+                : 'Lendo os detalhes da sua peça…'}
+            </p>
             <div className="loader-line mt-2" />
           </div>
         </div>
@@ -404,7 +593,7 @@ export default function ArmarioPage() {
           </div>
         </div>
       )}
-      {catalogResult && imagePreview && <CatalogReview data={catalogResult} imagePreview={imagePreview} onConfirm={handlePreSave} onCancel={() => { setCatalogResult(null); setImagePreview(''); setImageFile(null); setError(null); }} saving={saving} />}
+      {atual && catalogResult && imagePreview && <CatalogReview key={atual.id} data={catalogResult} imagePreview={imagePreview} onConfirm={handlePreSave} onCancel={() => { setError(null); proximaPeca(); }} saving={saving} posicao={{ atual: loteTotal - fila.length + 1, total: loteTotal }} />}
       {duplicateWarning && (
         <div className="fixed inset-0 z-[60] bg-foreground/40 flex items-center justify-center px-4" onClick={() => setDuplicateWarning(null)}>
           <div className="bg-surface rounded-[4px] p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
@@ -425,7 +614,7 @@ export default function ArmarioPage() {
             <p className="text-sm text-muted mb-5">Já existe uma peça parecida no seu armário. Deseja adicionar mesmo assim?</p>
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => setDuplicateWarning(null)} className="btn btn-outline">Cancelar</button>
-              <button onClick={handleConfirmSave} className="btn btn-primary">Adicionar</button>
+              <button onClick={() => handleConfirmSave()} className="btn btn-primary">Adicionar</button>
             </div>
           </div>
         </div>
