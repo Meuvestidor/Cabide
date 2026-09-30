@@ -26,6 +26,7 @@ import {
 } from '@/lib/constants';
 import { createClient } from '@/lib/supabase-client';
 import type { Categoria, Ocasiao } from '@/types/database';
+import { resolverDuvidas, type TemaDuvida } from '@/lib/duvidas';
 
 interface PieceData {
   id: string;
@@ -167,6 +168,12 @@ export function PieceDetail({
     try {
       const supabase = createClient();
       const disponivel = editData.estado === 'disponivel' || editData.disponivel;
+      // Pontos a confirmar resolvidos nesta edição saem (tamanho informado, material ou cor corrigidos).
+      const resolvidos = new Set<TemaDuvida>();
+      if (editData.tamanho?.trim() && editData.tamanho !== peca.tamanho) resolvidos.add('tamanho');
+      if (editData.material?.trim() && editData.material !== peca.material) resolvidos.add('material');
+      if (editData.cor?.trim() && editData.cor !== peca.cor) resolvidos.add('cor');
+      const duvidas = resolverDuvidas(peca.duvidas, resolvidos);
 
       const { error } = await supabase
         .from('pecas')
@@ -191,6 +198,8 @@ export function PieceDetail({
           como_me_queda: editData.como_me_queda,
           notas: editData.notas,
           disponivel: editData.estado === 'disponivel',
+          duvidas,
+          revisar: !!duvidas,
         })
         .eq('id', peca.id);
 
@@ -201,12 +210,12 @@ export function PieceDetail({
 
       setIsEditing(false);
       if (onUpdate) {
-        onUpdate({ ...editData, disponivel: editData.estado === 'disponivel' });
+        onUpdate({ ...editData, duvidas, revisar: !!duvidas, disponivel: editData.estado === 'disponivel' });
       }
     } finally {
       setSaving(false);
     }
-  }, [editData, peca.id, onUpdate]);
+  }, [editData, peca.id, peca.tamanho, peca.material, peca.cor, peca.duvidas, onUpdate]);
 
   const toggleOcasiao = (key: string) => {
     setEditData(prev => ({
@@ -262,6 +271,7 @@ export function PieceDetail({
               <button
                 onClick={handleSave}
                 disabled={saving}
+                aria-label="Salvar alterações"
                 className="w-9 h-9 rounded-[4px] bg-primary flex items-center justify-center transition-colors"
               >
                 {saving ? (
@@ -273,6 +283,7 @@ export function PieceDetail({
             ) : (
               <button
                 onClick={() => setIsEditing(true)}
+                aria-label="Editar peça"
                 className="w-9 h-9 rounded-[4px] hover:bg-surface-alt flex items-center justify-center transition-colors"
               >
                 <Edit3 size={16} className="text-primary" />

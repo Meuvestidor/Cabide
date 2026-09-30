@@ -18,6 +18,7 @@ import { CategoriaSelector } from '@/components/armario/CategoriaSelector';
 import { TamanhoPecaPicker } from '@/components/armario/TamanhoPecaPicker';
 import type { Categoria } from '@/types/database';
 import { prepararFoto } from '@/lib/imagem';
+import { duvidasPendentes, resolverDuvidas, temaDaDuvida, type TemaDuvida } from '@/lib/duvidas';
 import { mergeFichaIa, sanitizarAtributos, sanitizarTamanho } from '@/lib/ficha-ia';
 
 interface PecaRow {
@@ -137,6 +138,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 /** O que a usuária completou/corrigiu na ficha antes de salvar. */
 interface AjustesFicha {
   tamanho: string | null;
+  /** A usuária escolheu o tamanho (inclui "Não informado"). */
+  tamanhoDefinido: boolean;
   campos: Partial<Record<CampoTexto, string>>;
 }
 type CampoTexto = 'nome' | 'subcategoria' | 'cor' | 'material' | 'marca';
@@ -144,16 +147,28 @@ type CampoTexto = 'nome' | 'subcategoria' | 'cor' | 'material' | 'marca';
 /** Valor que a IA marcou como não identificado ("?") ou deixou vazio. */
 const naoIdentificado = (v: string | null | undefined) => !v || v.trim() === '?';
 
+/** Temas que a usuária resolveu na ficha (tamanho escolhido — inclusive "Não informado" — ou campo confirmado/corrigido). */
+function temasResolvidos(tamanhoDefinido: boolean, campos: AjustesFicha['campos']): Set<TemaDuvida> {
+  const r = new Set<TemaDuvida>();
+  if (tamanhoDefinido) r.add('tamanho');
+  if (campos.material !== undefined) r.add('material');
+  if (campos.cor !== undefined) r.add('cor');
+  return r;
+}
+
 /**
  * Campo de texto da ficha que a usuária pode completar/corrigir.
  * Usa o mesmo tipo de edição (texto livre) que o detalhe da peça já oferece.
  */
-function CampoCorrigivel({ label, valor, onChange, sempreCorrigivel = false }: {
+function CampoCorrigivel({ label, valor, onChange, sempreCorrigivel = false, abrir = 0 }: {
   label: string; valor: string | null; onChange: (v: string) => void; sempreCorrigivel?: boolean;
+  /** Muda de valor para abrir a edição (ação vinda de "Pontos a confirmar"). */
+  abrir?: number;
 }) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(naoIdentificado(valor) ? '' : valor!);
   const vazio = naoIdentificado(valor);
+  useEffect(() => { if (abrir > 0) setEditando(true); }, [abrir]);
   if (!vazio && !sempreCorrigivel) return <Field label={label}>{valor}</Field>;
   return (
     <Field label={label}>
@@ -194,6 +209,12 @@ function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving, posica
   const [campos, setCampos] = useState<AjustesFicha['campos']>({});
   const valor = (c: CampoTexto) => campos[c] ?? (data[c] as string | null);
   const setCampo = (c: CampoTexto) => (v: string) => setCampos((prev) => ({ ...prev, [c]: v }));
+  const [abrirMaterial, setAbrirMaterial] = useState(0);
+  const [abrirCor, setAbrirCor] = useState(0);
+
+  // Pontos a confirmar: o que a usuária resolve sai da lista (e não é gravado).
+  const resolvidos = temasResolvidos(tamanhoDefinido, campos);
+  const pendentes = duvidasPendentes(data.duvidas, resolvidos);
 
   const textoTamanho = tamanho ?? (tamanhoDefinido ? 'Não informado' : 'Tamanho não identificado');
 
@@ -223,8 +244,8 @@ function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving, posica
             <CampoCorrigivel label="Tipo" valor={valor('subcategoria')} onChange={setCampo('subcategoria')} />
           </div>
           <div className="grid grid-cols-2 gap-x-4">
-            {naoIdentificado(valor('cor')) ? (
-              <CampoCorrigivel label="Cor" valor={valor('cor')} onChange={setCampo('cor')} />
+            {naoIdentificado(valor('cor')) || abrirCor > 0 ? (
+              <CampoCorrigivel label="Cor" valor={valor('cor')} onChange={setCampo('cor')} sempreCorrigivel abrir={abrirCor} />
             ) : (
               <Field label="Cor">
                 <span className="inline-flex items-center gap-2">
@@ -256,7 +277,7 @@ function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving, posica
             )}
           </Field>
 
-          <CampoCorrigivel label="Material" valor={valor('material')} onChange={setCampo('material')} sempreCorrigivel />
+          <CampoCorrigivel label="Material" valor={valor('material')} onChange={setCampo('material')} sempreCorrigivel abrir={abrirMaterial} />
           {!naoIdentificado(data.marca) && <Field label="Marca">{data.marca}</Field>}
 
           {data.ocasioes?.length > 0 && (
@@ -268,24 +289,35 @@ function CatalogReview({ data, imagePreview, onConfirm, onCancel, saving, posica
               </div>
             </Field>
           )}
-          {data.duvidas && (
-            <div className="mt-4 p-3 border-l-2 border-warning bg-surface-alt">
+          {pendentes.length > 0 && (
+            <div className="mt-4 p-3 border-l-2 border-warning bg-surface-alt" data-testid="pontos-a-confirmar">
               <p className="eyebrow text-warning mb-1">Pontos a confirmar</p>
-              <p className="text-sm text-foreground">{data.duvidas}</p>
-              {!tamanho && !tamanhoDefinido && !escolhendoTamanho && (
-                <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-3">
-                  <span className="text-sm"><span className="font-semibold">Tamanho</span> <span className="text-muted">· Não identificado</span></span>
-                  <button type="button" onClick={() => setEscolhendoTamanho(true)} className="btn btn-outline h-9 min-h-9 px-3 text-[13px]">
-                    Informar tamanho
-                  </button>
-                </div>
-              )}
+              <ul className="flex flex-col">
+                {pendentes.map((ponto) => {
+                  const tema = temaDaDuvida(ponto);
+                  const acao =
+                    tema === 'tamanho' && !escolhendoTamanho ? { rotulo: 'Informar tamanho', fazer: () => setEscolhendoTamanho(true) }
+                    : tema === 'material' ? { rotulo: 'Confirmar material', fazer: () => setAbrirMaterial((n) => n + 1) }
+                    : tema === 'cor' ? { rotulo: 'Confirmar cor', fazer: () => setAbrirCor((n) => n + 1) }
+                    : null;
+                  return (
+                    <li key={ponto} className="py-2 first:pt-0 last:pb-0 border-b border-border last:border-b-0">
+                      <p className="text-sm text-foreground">{ponto}</p>
+                      {acao && (
+                        <button type="button" onClick={acao.fazer} className="btn btn-outline h-9 min-h-9 px-3 text-[13px] mt-2">
+                          {acao.rotulo}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
         </div>
         <div className="sticky bottom-0 bg-surface border-t border-border p-4 grid grid-cols-2 gap-3">
           <button onClick={onCancel} className="btn btn-outline">Descartar</button>
-          <button onClick={() => onConfirm({ tamanho, campos })} disabled={saving} className="btn btn-primary">
+          <button onClick={() => onConfirm({ tamanho, tamanhoDefinido, campos })} disabled={saving} className="btn btn-primary">
             {saving ? <Loader2 size={18} className="animate-spin" /> : <><Check size={18} /> Salvar peça</>}
           </button>
         </div>
@@ -464,6 +496,10 @@ export default function ArmarioPage() {
     // Correções da usuária têm prioridade sobre o que a IA leu.
     const ficha = { ...catalogResult, ...(ajustes?.campos ?? {}) };
     const tamanhoFinal = ajustes ? sanitizarTamanho(ajustes.tamanho) : sanitizarTamanho(catalogResult.tamanho);
+    // Só os pontos que continuam em aberto; ficha_ia guarda o texto original da IA.
+    const duvidasFinais = ajustes
+      ? resolverDuvidas(catalogResult.duvidas, temasResolvidos(ajustes.tamanhoDefinido, ajustes.campos))
+      : catalogResult.duvidas;
     setSaving(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -489,8 +525,8 @@ export default function ArmarioPage() {
         estampa: undefined, salto: undefined, caimento: undefined, detalhes: undefined,
         ...sanitizarAtributos(catalogResult as unknown as Record<string, unknown>),
       }),
-      duvidas: catalogResult.duvidas,
-      revisar: !!catalogResult.duvidas,
+      duvidas: duvidasFinais,
+      revisar: !!duvidasFinais,
     });
     if (iErr) { setError('Não conseguimos salvar a peça agora. Tente novamente.'); setSaving(false); return; }
     setSaving(false);
